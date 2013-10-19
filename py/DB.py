@@ -1,9 +1,10 @@
 #!/usr/bin/python
 from ImageUtils import ImageUtils
 import time
-from os import path
+from os import path, listdir
 from shutil import copy2
 from sys import stderr
+from Reddit import Comment, Post
 
 try:                import sqlite3
 except ImportError: import sqlite as sqlite3
@@ -184,7 +185,7 @@ class DB:
 			q = 'insert into users values ('
 			q += 'NULL,'         # user id
 			q += '"%s",' % user  # username
-			q += ' "" ,' % since # since id
+			q += ' "" ,'         # since id
 			q += ' %d ,' % now   # created
 			q += ' %d ,' % now   # updated
 			q += '  0 ,'         # deleted
@@ -372,12 +373,21 @@ class DB:
 		Derive values for post/comment from filename
 	'''
 	def add_existing_image(self, user, oldimage, oldpath, subdir='', album_id=-1):
+		if 'tumblr' in oldpath:
+			# Can't properly handle tumblr links
+			self.debug('cannot properly handle tumblr links')
+			return
 		newimage  = path.join(ImageUtils.get_root(), 'content', user, subdir, oldimage)
+		newimage = newimage.replace('.jpeg.jpg', '.jpg')
 		thumbnail = path.join(ImageUtils.get_root(), 'content', user, subdir, 'thumbs', oldimage)
+		thumbnail = thumbnail.replace('.jpeg.jpg', '.jpg')
 		if path.exists(newimage):
-			raise Exception('image already exists: %s' % newimage)
+			self.debug('image already exists: %s' % newimage)
+			return
 
-		copy2(oldimage, newimage)
+		ImageUtils.create_subdirectories(path.join(ImageUtils.get_root(), 'content', user, subdir, 'thumbs'))
+
+		copy2(oldpath, newimage)
 		try:
 			ImageUtils.create_thumbnail(newimage, thumbnail)
 		except Exception, e:
@@ -386,47 +396,99 @@ class DB:
 
 		(post, comment, imgid) = self.get_post_comment_id(oldimage)
 		url  = 'http://i.imgur.com/%s' % imgid
-		dims = ImageUtils.get_image_dimensions(imagedir)
-		size = path.getsize(imagedir)
-		ImageUtils.create_thumbnail(imagedir, thumb)
-		self.add_image(newimage, user, url, 
-				dims[0], dims[1], size, thumbnail, 'image', 
-				album_id, post, comment)
+		dims = ImageUtils.get_image_dimensions(newimage)
+		size = path.getsize(newimage)
+		try:
+			ImageUtils.create_thumbnail(newimage, thumbnail)
+		except Exception, e:
+			self.debug('add_existing_image: create_thumbnail failed: %s' % str(e))
+			thumbnail = path.join(ImageUtils.get_root(), 'images', 'nothumb.png')
+		try:
+			self.add_image(newimage, user, url, 
+					dims[0], dims[1], size, thumbnail, 'image', 
+					album_id, post, comment)
+		except Exception, e:
+			self.debug('add_existing_image: failed: %s' % str(e))
+			return
 
-		if subdir != '' or album_id != -1: # Not an album
+		if subdir == '' and album_id == -1: # Not an album
 			# Add post
 			p = Post()
 			p.id = post
 			p.author = user
 			if comment == None: p.url = url
 			p.created = path.getctime(oldpath)
+			p.subreddit = ''
+			p.title = ''
 			try:
 				self.add_post(p, legacy=1)
 			except Exception, e:
-				self.debug('add_existing_image: %s' % str(e))
+				#self.debug('add_existing_image: %s' % str(e))
+				pass
+
 			# Add comment
-			c = Comment()
-			c.id = comment
-			c.post_id = post
-			c.author = user
-			if comment != None: c.body = url
-			p.created = path.getctime(oldpath)
-			try:
-				self.add_comment(c, legacy=1)
-			except Exception, e:
-				self.debug('add_existing_image: %s' % str(e))
+			if comment != None:
+				c = Comment()
+				c.id = comment
+				c.post_id = post
+				c.author = user
+				if comment != None: c.body = url
+				p.created = path.getctime(oldpath)
+				try:
+					self.add_comment(c, legacy=1)
+				except Exception, e:
+					#self.debug('add_existing_image: %s' % str(e))
+					pass
 
 	def add_existing_album(self, user, oldalbum, oldpath):
-		newalbum = path.join(ImageUtils.get_root(), 'content', user, album)
+		newalbum = path.join(ImageUtils.get_root(), 'content', user, oldalbum)
 		if path.exists(newalbum):
-			raise Exception('album already exists: %s' % newalbum)
+			self.debug('album already exists: %s' % newalbum)
+			return
 
-		(post, comment, imgid) = self.get_post_comment_id(album)
+		(post, comment, imgid) = self.get_post_comment_id(oldalbum)
 		url = 'http://imgur.com/a/%s' % imgid
-		album_id = self.add_album(newalbum, user, url, post, comment)
+		try:
+			album_id = self.add_album(newalbum, user, url, post, comment)
+		except Exception, e:
+			self.debug('add_existing_album: error adding album: %s' % str(e))
+			return
 
 		for image in listdir(oldpath):
-			self.add_existing_image(user, image, oldpath, subdir=oldalbum, album_id=album_id)
+			self.debug('add_existing_album: image=%s' % path.join(oldpath, image))
+			fakeimage = post
+			if comment != None:
+				fakeimage = '%s-%s' % (fakeimage, comment)
+			fakeimage = '%s_%s' % (fakeimage, image.split('_')[-1])
+			self.add_existing_image(user, fakeimage, path.join(oldpath, image), subdir=oldalbum, album_id=album_id)
+
+			# Add post
+			p = Post()
+			p.id = post
+			p.author = user
+			if comment == None: p.url = url
+			p.created = path.getctime(oldpath)
+			p.subreddit = ''
+			p.title = ''
+			try:
+				self.add_post(p, legacy=1)
+			except Exception, e:
+				#self.debug('add_existing_image: %s' % str(e))
+				pass
+
+			# Add comment
+			if comment != None:
+				c = Comment()
+				c.id = comment
+				c.post_id = post
+				c.author = user
+				if comment != None: c.body = url
+				p.created = path.getctime(oldpath)
+				try:
+					self.add_comment(c, legacy=1)
+				except Exception, e:
+					#self.debug('add_existing_image: %s' % str(e))
+					pass
 
 
 if __name__ == '__main__':

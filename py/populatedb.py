@@ -2,11 +2,13 @@
 
 from os import listdir, path, walk
 from DB import DB
+from ImageUtils import ImageUtils
 
 db = DB()
+root = ImageUtils.get_root()
 
-for user in listdir('users'):
-	userdir = path.join('users', user)
+for user in listdir(path.join(root, 'users')):
+	userdir = path.join(root, 'users', user)
 	if not path.isdir(userdir): continue
 	for item in listdir(userdir):
 		itempath = path.join(userdir, item)

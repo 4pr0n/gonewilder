@@ -12,14 +12,17 @@ class Child(object):
 		self.created   = 0
 		self.author    = ''
 
-class Post(Child):
+class Post(Child,object):
 	def __init__(self):
+		super(Post,self).__init__()
 		self.over_18  = False
-		self.url      = None
-		self.selftext = None
+		self.url      = ''
+		self.selftext = ''
+		self.title    = ''
 
-class Comment(Child):
+class Comment(Child,object):
 	def __init__(self):
+		super(Comment,self).__init__()
 		self.body    = ''
 		self.post_id = ''
 
