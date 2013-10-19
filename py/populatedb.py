@@ -13,7 +13,8 @@ for user in listdir('users'):
 		if path.isfile(itempath):
 			# Image
 			print "image: %s" % itempath
-			db.add_image(user, item)
+			db.add_existing_image(user, item)
 		elif path.isdir(itempath):
 			# Album
 			print "album: %s" % itempath
+			db.add_existing_album(user, item)

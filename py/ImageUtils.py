@@ -1,24 +1,30 @@
 #!/usr/bin/python
 
 from Httpy    import Httpy
-from os       import path, getcwd, sep
+from os       import path, getcwd, sep, mkdir
 from PIL      import Image # Python Image Library
 from commands import getstatusoutput
+from sys      import stderr
 
 class ImageUtils(object):
+	logger = stderr
 
 	# Static class variables
 	MAXIMUM_THUMBNAIL_SIZE = 5 * 1024 * 1024 # In bytes
 	MAXIMUM_THUMBNAIL_DIM  = 4000 # In pixels
 	httpy = Httpy()
 
-	def __init__(self):
-		pass
+	@staticmethod
+	def debug(text):
+		ImageUtils.logger.write('ImageUtils: %s\n' % text)
+		if ImageUtils.logger != stderr:
+			stderr.write('ImageUtils: %s\n' % text)
 
 	'''
 		Given a URL, return a tuple containig:
 		[0] media type ('video', 'image')
-		[1] List of all direct links to relevant media. E.g.:
+		[1] filesystem-safe album name, or None if not an album
+		[2] List of all direct links to relevant media. E.g.:
 					imgur.com/asdf1 -> [i.imgur.com/asdf1.jpg]
 					i.imgur.com/smallh.jpg -> [i.imgur.com/large.jpg]
 					imgur.com/a/album -> [i.imgur.com/image1.jpg, i.imgur.com/image2.jpg]
@@ -32,7 +38,7 @@ class ImageUtils(object):
 			return ImageUtils.get_urls_imgur(url)
 		elif '.' in url and url.lower()[url.rfind('.')+1:] in ['jpg', 'jpeg', 'png', 'gif']:
 			# Direct link to image
-			return ('image', url)
+			return ('image', None, [url])
 		elif 'xhamster.com' in url:
 			# xhamster
 			return ImageUtils.get_urls_xhamster(url)
@@ -63,56 +69,61 @@ class ImageUtils(object):
 	# XHAMSTER
 	@staticmethod
 	def get_urls_xhamster(url):
+		ImageUtils.debug('xhamster: getting %s' % url)
 		r = ImageUtils.httpy.get(url)
 		if not "<div class='mp4'>" in r:
 			raise Exception('no mp4 found at %s' % url)
 		chunk = ImageUtils.httpy.between(r, "<div class='mp4'>", "</div>")[0]
-		return ('video', ImageUtils.httpy.between(chunk, 'href="', '"')[0])
+		return ('video', None, [ImageUtils.httpy.between(chunk, 'href="', '"')[0]])
 
 	################
 	# VIDEOBAM
 	@staticmethod
 	def get_urls_videobam(url):
+		ImageUtils.debug('videobam: getting %s' % url)
 		r = ImageUtils.httpy.get(url)
 		if not ',"url":"' in r:
 			raise Exception('no url found at %s' % url)
 		for link in ImageUtils.httpy.between(r, '"url":"', '"'):
 			if not '.mp4' in link: continue
-			return ('video', link.replace('\\', ''))
+			return ('video', None, [link.replace('\\', '')])
 		raise Exception('no mp4 found at %s' % url)
 
 	################
 	# SEXYKARMA
 	@staticmethod
 	def get_urls_sexykarma(url):
+		ImageUtils.debug('sexykarma: getting %s' % url)
 		r = ImageUtils.httpy.get(url)
 		if not "url: escape('" in r:
 			raise Exception('no url found at %s' % url)
 		for link in ImageUtils.httpy.between(r, "url: escape('", "'"):
-			return ('video', link)
+			return ('video', None, [link])
 		raise Exception('no video found at %s' % url)
 
 	################
 	# TUMBLR
 	@staticmethod
 	def get_urls_tumblr(url):
+		ImageUtils.debug('tumbmlr: getting %s' % url)
 		r = ImageUtils.httpy.get(url)
 		if not 'source src=\\x22' in r:
 			raise Exception('no src= found at %s' % url)
 		for link in ImageUtils.httpy.between(r, 'source src=\\x22', '\\x22'):
 			link = ImageUtils.httpy.unshorten(link)
-			return ('video', link)
+			return ('video', None, [link])
 		raise Exception('no video found at %s' % url)
 
 	################
 	# VINE
 	@staticmethod
 	def get_urls_vine(url):
+		ImageUtils.debug('vine: getting %s' % url)
 		r = ImageUtils.httpy.get(url)
 		if not 'property="twitter:image" content="' in r:
 			raise Exception('no twitter:image found at %s' % url)
 		for link in ImageUtils.httpy.between(r, 'property="twitter:image" content="', '"'):
-			return ('video', link)
+			return ('video', None, [link])
 		raise Exception('no video found at %s' % url)
 
 	################
@@ -124,10 +135,15 @@ class ImageUtils(object):
 		if '/m.imgur.com/' in url: url = url.replace('/m.imgur.com/', '/imgur.com/')
 		if '.com/a/' in url:
 			# Album
-			return ('album', ImageUtils.get_imgur_album(url))
+			albumid = url[url.find('/a/')+3:]
+			if '/' in albumid: albumid = albumid[:albumid.find('/')]
+			if '#' in albumid: albumid = albumid[:albumid.find('#')]
+			if '?' in albumid: albumid = albumid[:albumid.find('?')]
+			return ('album', albumid, ImageUtils.get_imgur_album(url))
 		else:
 			# Image
-			return ('image', [ImageUtils.get_imgur_highest_res(url)])
+			ImageUtils.debug('imgur: found %s' % url)
+			return ('image', None, [ImageUtils.get_imgur_highest_res(url)])
 		raise Exception('unable to get urls from %s' % url)
 
 	@staticmethod
@@ -139,21 +155,25 @@ class ImageUtils(object):
 		url = 'http://%s' % '/'.join(fields)
 		# Get album
 		result = []
+		ImageUtils.debug('imgur_album: loading %s' % url)
 		r = ImageUtils.httpy.get('%s/noscript' % url)
 		for image in ImageUtils.httpy.between(r, '<img src="//i.', '"'):
 			image = 'http://i.%s' % image
 			image = ImageUtils.get_imgur_highest_res(image)
 			result.append(image)
+		ImageUtils.debug('imgur_album: found %d images in album' % len(result))
 		return result
 	
 	@staticmethod
 	def get_imgur_highest_res(url):
+		return url
 		if not '/' in url:
 			raise Exception('invalid url: %s' % url)
 		fname = url.split('/')[-1]
 		if '.' in fname and fname[fname.rfind('.')-1] == 'h':
 			# Might not be highest res, revert to image-page
 			noh = url[:url.rfind('h.')] + url[url.rfind('h.')+1:]
+			ImageUtils.debug('imgur_highest_res: get_meta on %s' % noh)
 			meta = ImageUtils.httpy.get_meta(noh)
 			if 'Content-Length' in meta and meta['Content-Length'] == '503':
 				return url
@@ -161,6 +181,7 @@ class ImageUtils(object):
 				return noh
 		elif not '.' in fname:
 			# Need to get full-size and extension
+			ImageUtils.debug('imgur_highest_res: getting %s' % url)
 			r = ImageUtils.httpy.get(url)
 			if not '<link rel="image_src" href="' in r:
 				raise Exception('image not found')
@@ -168,15 +189,19 @@ class ImageUtils(object):
 			return 'http:%s' % image
 		return url
 
+
 	'''
 		Return just filename (no path) for a URL
 			http://i.imgur.com/asdf1.jpg -> "asdf1.jpg"
 			amazonaws.com/crazystuff/theimage.jpg?morecrazy=stuff&asdf=123 -> "theimage.jpg"
+			http://2.videobam.com/storage/encoded.mp4/2d1/5113?ss=177 -> "encoded.mp4"
 	'''
 	@staticmethod
 	def get_filename_from_url(url):
 		fname = ImageUtils.strip_url(url)
-		return fname[fname.rfind('/')+1:]
+		fields = fname.split('/')
+		while not '.' in fields[-1]: fields.pop(-1)
+		return fields[-1]
 
 
 	########################
@@ -208,6 +233,7 @@ class ImageUtils(object):
 			
 		if im.mode != 'RGB': im = im.convert('RGB')
 		im.thumbnail( (200,200), Image.ANTIALIAS)
+		ImageUtils.debug('create_thumbnail: saving %s' % saveas)
 		im.save(saveas, 'JPEG')
 
 	''' 
@@ -242,7 +268,22 @@ class ImageUtils(object):
 
 	@staticmethod
 	def get_image_dimensions(image):
-		return Image(image).size
+		im = Image.open(image)
+		return im.size
+
+
+	###############
+	# MISCELLANEOUS
+
+	@staticmethod
+	def create_subdirectories(directory):
+		current = '/'
+		for subdir in directory.split(sep):
+			if subdir == '': continue
+			current = path.join(current, subdir)
+			if not path.exists(current):
+				mkdir(current)
+
 
 if __name__ == '__main__':
 	#url = 'http://www.sexykarma.com/gonewild/video/cum-compilation-YIdo9ntfsWo.html'
@@ -252,4 +293,5 @@ if __name__ == '__main__':
 	#url = 'https://vine.co/v/h6Htgnj7Z5q'
 	#print ImageUtils.get_urls(url)
 	#ImageUtils.create_thumbnail('test.jpg', 'test_thumb.jpg')
-	ImageUtils.create_thumbnail('../test.mp4', '../test_thumb.jpg')
+	#ImageUtils.create_thumbnail('../test.mp4', '../test_thumb.jpg')
+	pass

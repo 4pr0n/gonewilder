@@ -264,29 +264,19 @@ class Httpy:
 	def download(self, url, save_as):
 		"""
 			Downloads a file from 'url' and saves the file locally as 'save_as'.
-			Returns True if download is successful, False otherwise.
+			Throws exceptions if errors occur
 		"""
+		output = open(save_as, 'wb')
 		
-		result = False
-		output = open(save_as, "wb")
-		
-		try:
-			headers = {'User-agent' : self.user_agent}
-			req = urllib2.Request(url, headers=headers)
-			file_on_web = self.urlopen(req)
-			while True:
-				buf = file_on_web.read(65536)
-				if len(buf) == 0:
-					break
-				output.write(buf)
-			result = True
-			
-		except IOError, e: pass
-		except httplib.HTTPException, e: pass
-		except ValueError: return ''
-		
+		headers = {'User-agent' : self.user_agent}
+		req = urllib2.Request(url, headers=headers)
+		file_on_web = self.urlopen(req)
+		while True:
+			buf = file_on_web.read(65536)
+			if len(buf) == 0:
+				break
+			output.write(buf)
 		output.close()
-		return result
 	
 	
 	def clear_cookies(self):

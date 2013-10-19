@@ -2,6 +2,7 @@
 from ImageUtils import ImageUtils
 import time
 from os import path, listdir, getcwd, sep
+from sys import stderr
 
 try:                import sqlite3
 except ImportError: import sqlite as sqlite3
@@ -84,10 +85,15 @@ cwd = getcwd()
 if cwd.endswith('py'):
 	cwd = cwd[:cwd.rfind(sep)]
 
-DB_FILE = '%sdatabase.db' % cwd
+DB_FILE = path.join(cwd, 'database.db')
 
 class DB:
 	def __init__(self):
+		self.logger = stderr
+		if path.exists(DB_FILE):
+			self.debug('__init__: using database file: %s' % DB_FILE)
+		else:
+			self.debug('__init__: database file (%s) not found, creating...' % DB_FILE)
 		self.conn = None
 		self.conn = sqlite3.connect(DB_FILE) #TODO CHANGE BACK, encoding='utf-8')
 		self.conn.text_factory = lambda x: unicode(x, "utf-8", "ignore")
@@ -96,6 +102,11 @@ class DB:
 			# Create table for every schema given.
 			for key in SCHEMA:
 				self.create_table(key, SCHEMA[key])
+	
+	def debug(self, text):
+		self.logger.write('DB: %s\n' % text)
+		if self.logger != stderr:
+			stderr.write('DB: %s\n' % text)
 	
 	def create_table(self, table_name, schema):
 		cur = self.conn.cursor()
@@ -163,54 +174,102 @@ class DB:
 	''' Add user to list of either 'users' or 'newusers' table '''
 	def add_user(self, user, new=False):
 		cur = self.conn.cursor()
-		cur.execute('insert into %susers values (NULL, "%s", "", %d, %d, 0, 0, 0, 0, 0)' % ('new' if new else '', user, int(time.time()), int(time.time())))
+		query = '''
+			insert
+				into %susers
+				values (
+					NULL,
+					"%s",
+					"",
+					%d,
+					%d,
+					0, 0, 0, 0, 0)
+		''' % (
+			'new' if new else '',
+			user,
+			int(time.time()),
+			int(time.time()))
+		try:
+			cur.execute(query)
+		except sqlite3.IntegrityError, e:
+			self.debug('add_user: user "%s" already exists: %s' % (user, str(e)))
+			raise e
 		self.conn.commit()
 
 	''' Finds user ID for username; creates new user if not found '''
 	def get_user_id(self, user):
 		cur = self.conn.cursor()
-		results = cur.execute('select id from users where username like "%s"' % user)
+		results = cur.execute('''
+			select id
+				from users
+				where username like "%s"
+		''' % user)
 		users = results.fetchall()
 		if len(users) == 0:
 			self.add_user(user, new=False)
-			results = cur.execute('select id from users where username like "%s"' % user)
+			results = cur.execute('''
+				select id
+					from users
+					where username like "%s"
+			''' % user)
 			users = results.fetchall()
 		cur.close()
 		return users[0][0]
 
 	def album_exists(self, user, albumdir):
 		cur = self.conn.cursor()
-		results = cur.execute('select * from albums where path = "%s"' % albumdir)
+		results = cur.execute('''
+			select *
+				from albums
+				where path = "%s"
+		''' % albumdir)
 		return len(results.fetchall()) > 0
 
 	def image_exists(self, user, imagedir):
 		cur = self.conn.cursor()
-		results = cur.execute('select * from images where path = "%s"' % imagedir)
+		results = cur.execute('''
+			select *
+				from images
+				where path = "%s"
+		''' % imagedir)
 		return len(results.fetchall()) > 0
 
 	''' True if user has been added to 'users' or 'newusers', False otherwise '''
 	def user_already_added(self, user):
 		cur = self.conn.cursor()
-		results = cur.execute('select * from users where username like "%s"' % user)
+		results = cur.execute('''
+			select *
+				from users
+				where username like "%s"
+		''' % user)
 		if len(results.fetchall()) > 0:
 			return True
-		results = cur.execute('select * from newusers where username like "%s"' % user)
+		results = cur.execute('''
+			select *
+				from newusers
+				where username like "%s"
+		''' % user)
 		if len(results.fetchall()) > 0:
 			return True
 		return False
 
 	def get_last_since_id(self, user):
 		cur = self.conn.cursor()
-		results = cur.execute('select max(sinceid) from users where username like "%s"' % user)
+		results = cur.execute('''
+			select max(sinceid)
+				from users
+				where username = "%s"
+		''' % user)
 		return results.fetchall()[0][0]
 
 	def set_last_since_id(self, user, since_id):
 		cur = self.conn.cursor()
-		cur.execute('''
+		query = '''
 			update users
 				set sinceid = "%s"
-				where username like "%s"
-		''' % (since_id, user))
+				where username = "%s"
+		''' % (since_id, user)
+		cur.execute(query)
 		self.conn.commit()
 	
 	def add_post(self, post):
@@ -237,12 +296,11 @@ class DB:
 		userid = self.get_user_id(comment.author)
 		q = 'insert into comments values ('
 		q += '"%s",' % comment.id
-		q += '%d,'   % userid
+		q += ' %d ,' % userid
 		q += '"%s",' % comment.post_id
 		q += '"%s",' % comment.subreddit
 		q += '"%s",' % comment.body
-		q += '%d'    % comment.created
-		q += ')'
+		q += ' %d )' % comment.created
 		cur = self.conn.cursor()
 		try:
 			result = cur.execute(q)
@@ -252,14 +310,58 @@ class DB:
 		cur.close()
 		self.conn.commit()
 
+	def add_album(self, path, user, url, postid, commentid):
+		userid = self.get_user_id(user)
+		q = 'insert into albums values ('
+		q += 'NULL,'  # albumid
+		q += '"%s",'  % path
+		q += ' %d ,'  % userid
+		q += '"%s",'  % url
+		q += '"%s",'  % postid
+		q += 'NULL,' if commentid == None else '"%s",' % commentid
+		q += '0,0,0)' # views, rating, ratings
+		cur = self.conn.cursor()
+		try:
+			result = cur.execute(q)
+		except sqlite3.IntegrityError, e:
+			# Column already exists
+			raise Exception('album already exists in DB (%s): %s' % (path, str(e)))
+		lastrow = cur.lastrowid
+		cur.close()
+		self.conn.commit()
+		return lastrow
+
+	def add_image(self, path, user, url, width, height, size, thumb,
+	                    mediatype, albumid, postid, commentid):
+		userid = self.get_user_id(user)
+		q = 'insert into images values ('
+		q += 'NULL,'  # imageid
+		q += '"%s",'  % path
+		q += ' %d ,'  % userid
+		q += '"%s",'  % url
+		q += ' %d ,'  % width
+		q += ' %d ,'  % height
+		q += ' %d ,'  % size
+		q += '"%s",'  % thumb
+		q += '"%s",'  % mediatype
+		q += 'NULL,' if albumid   == None else '"%s",' % albumid
+		q += '"%s",'  % postid
+		q += 'NULL,' if commentid == None else '"%s",' % commentid
+		q += '0,0,0)' # views, rating, ratings
+		cur = self.conn.cursor()
+		try:
+			result = cur.execute(q)
+		except sqlite3.IntegrityError, e:
+			# Column already exists
+			raise Exception('album already exists in DB (%s): %s' % (path, str(e)))
+		lastrow = cur.lastrowid
+		cur.close()
+		self.conn.commit()
+		return lastrow
 
 
 	########################
 	# STUPID EXTRA FUNCTIONS
-	def get_image_type(self, url):
-		if url.lower().endswith('.mp4') or url.lower().endswith('.flv'):
-			return 'video'
-		return 'image'
 
 	def get_post_comment_id(self, pci):
 		if not '_' in pci: return ('', '', '')
@@ -271,7 +373,7 @@ class DB:
 			comment = ''
 		return (post, comment, i)
 
-	def add_image(self, user, image):
+	def add_existing_image(self, user, image):
 		(post, comment, imgid) = self.get_post_comment_id(image)
 		imagedir = path.join('users', user, image)
 		if self.image_exists(imagedir):
@@ -291,7 +393,7 @@ class DB:
 		q += '%d,'   % dims[1]  # height
 		q += '%d,'   % size     # file size
 		q += '"%s",' % thumb    # thumbnail path
-		q += '"%s",' % get_image_type(imagedir) # imagetype
+		q += '"image",'         # image type
 		q += '-1,'              # album id
 		q += '"%s",' % post     # post id
 		q += '"%s",' % comment  # comment id
@@ -305,7 +407,7 @@ class DB:
 		cur.close()
 		self.conn.commit()
 
-	def add_album(self, user, album):
+	def add_existing_album(self, user, album):
 		(post, comment, imgid) = self.get_post_comment_id(album)
 		albumdir = path.join('users', user, album)
 		if self.album_exists(user, album):
@@ -333,6 +435,7 @@ class DB:
 
 if __name__ == '__main__':
 	db = DB()
-	#db.add_user('4_pr0n')
-	#print db.get_last_since_id('4_pr0n')
-	print db.set_last_since_id('4_pr0n', 'ccs4ule')
+	try: db.add_user('4_pr0n')
+	except: pass
+	db.set_last_since_id('4_pr0n', 'ccs4ule')
+	print db.get_last_since_id('4_pr0n')

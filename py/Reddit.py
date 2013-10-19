@@ -1,8 +1,9 @@
 #!/usr/bin/python
 
-from json import loads
+from json  import loads
 from Httpy import Httpy
-from time import sleep
+from time  import sleep
+from sys   import stderr
 
 class Child(object):
 	def __init__(self):
@@ -24,30 +25,38 @@ class Comment(Child):
 
 ''' Retrieve posts/comments from reddit '''
 class Reddit(object):
+	logger = stderr
 	httpy = Httpy(user_agent='user ripper by /u/4_pr0n, or contact admin@rarchives.com')
 
-	def __init__(self):
-		pass
+	@staticmethod
+	def debug(text):
+		Reddit.logger.write('Reddit: %s\n' % text)
+		if Reddit.logger != stderr:
+			stderr.write('Reddit: %s\n' % text)
 
 	@staticmethod
-	def get(user, since=None):
+	def get(user, since=None, max_pages=None):
 		""" 
 			Get all comments and posts for a user since 'since'.
 			'since' is either a post id or comment id
 		"""
 		results = []
 		url = 'http://www.reddit.com/user/%s.json' % user
+		Reddit.debug('loading %s' % url)
 		r = Reddit.httpy.get(url)
+		page = 1
 		while True:
 			try:
 				json = loads(r)
 			except Exception, e:
+				Reddit.debug('get: failed to load JSON: %s' % str(e))
 				return results
 			if 'error' in json and json['error'] == 404:
 				raise Exception('deleted account')
 			if not 'data' in json or not 'children' in json['data']:
 				return []
 			children = json['data']['children']
+			Reddit.debug('get: found %d posts/comments' % len(children))
 			for child in children:
 				if since != None and child['data']['id'] == since:
 					return results
@@ -79,10 +88,15 @@ class Reddit(object):
 				results.append(result)
 			if len(children) == 0 or not 'after' in json['data']: break
 			after = json['data']['after']
-			if after == None: break
-			print 'loading next page...'
+			if after == None:
+				Reddit.debug('get: hit end of posts/comments')
+				break
+			if max_pages != None and max_pages >= page: break
 			sleep(2)
-			r = Reddit.httpy.get('%s?after=%s' % (url, after))
+			next_url = '%s?after=%s' % (url, after)
+			Reddit.debug('loading %s' % next_url)
+			r = Reddit.httpy.get(next_url)
+			page += 1
 		return results
 
 	@staticmethod
