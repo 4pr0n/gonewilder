@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from DB         import DB
-from os         import getcwd, sep, path, mkdir
+from os         import path, mkdir
 from sys        import stderr
 from Reddit     import Reddit, Child, Post, Comment
 from ImageUtils import ImageUtils
@@ -9,11 +9,6 @@ from ImageUtils import ImageUtils
 class Gonewild(object):
 	logger = stderr
 	db = DB() # Database instance
-
-	# Root working directory (not the /py/ dir)
-	CWD = getcwd()
-	if CWD.endswith('py'):
-		CWD = CWD[:CWD.rfind(sep)]
 	
 	@staticmethod
 	def debug(text):
@@ -38,10 +33,10 @@ class Gonewild(object):
 	@staticmethod
 	def poll_user(user):
 		# Create directories if needed
-		user_dir = path.join(Gonewild.CWD, 'content', user)
+		user_dir = path.join(ImageUtils.get_root(), 'content', user)
 		ImageUtils.create_subdirectories(user_dir)
 		# Setup logger
-		Gonewild.logger = open(path.join(user_dir, 'history.log'))
+		Gonewild.logger = open(path.join(user_dir, 'history.log'), 'a')
 		Gonewild.db.logger = Gonewild.logger
 		ImageUtils.logger  = Gonewild.logger
 		Reddit.logger      = Gonewild.logger
@@ -76,6 +71,7 @@ class Gonewild(object):
 			Gonewild.debug('poll_user: found %d url(s) in child' % len(urls))
 			for url_index, url in enumerate(urls):
 				Gonewild.process_url(url, url_index, child)
+		Gonewild.logger.close()
 
 	''' Returns list of URLs found in a reddit child (post or comment) '''
 	@staticmethod
@@ -104,7 +100,7 @@ class Gonewild(object):
 			postid = child.post_id
 			commid = child.id
 
-		working_dir = path.join(Gonewild.CWD, 'content', child.author)
+		working_dir = path.join(ImageUtils.get_root(), 'content', child.author)
 
 		# A single URL can contain multiple medias (i.e. albums)
 		try:
@@ -153,7 +149,7 @@ class Gonewild(object):
 				Gonewild.debug('process_url: creating thumbnail %s' % savethumbas)
 				ImageUtils.create_thumbnail(saveas, savethumbas)
 			except Exception, e:
-				savethumbas = path.join(Gonewild.CWD, 'images', 'nothumb.png')
+				savethumbas = path.join(ImageUtils.get_root(), 'images', 'nothumb.png')
 				Gonewild.debug('process_url: failed to create thumb: %s, using default' % str(e))
 
 			# Add to DB

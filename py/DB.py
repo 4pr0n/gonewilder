@@ -1,7 +1,8 @@
 #!/usr/bin/python
 from ImageUtils import ImageUtils
 import time
-from os import path, listdir, getcwd, sep
+from os import path
+from shutil import copy2
 from sys import stderr
 
 try:                import sqlite3
@@ -21,10 +22,10 @@ SCHEMA = {
 		'created   integer, \n\t' + 
 		'updated   integer, \n\t' +
 		'deleted   integer, \n\t' +
+		'blacklist integer, \n\t' +
 		'views     integer, \n\t' +
 		'rating    integer, \n\t' +
-		'ratings   integer, \n\t' +
-		'blacklist integer  \n\t',
+		'ratings   integer  \n\t',
 
 	'posts' :
 		'\n\t' +
@@ -35,6 +36,8 @@ SCHEMA = {
 		'subreddit string,  \n\t' +
 		'over_18   integer, \n\t' +
 		'created   integer, \n\t' +
+		'legacy    integer, \n\t' +
+		'permalink string,  \n\t' +
 		'foreign key(userid) references users(id)',
 	
 	'comments' :
@@ -45,6 +48,8 @@ SCHEMA = {
 		'subreddit string,  \n\t' +
 		'text      string,  \n\t' +
 		'created   integer, \n\t' +
+		'legacy    integer, \n\t' +
+		'permalink string,  \n\t' +
 		'foreign key(userid) references users(id)',
 
 	'albums' : 
@@ -81,11 +86,7 @@ SCHEMA = {
 		'foreign key(albumid) references albums(id)\n\t',
 }
 
-cwd = getcwd()
-if cwd.endswith('py'):
-	cwd = cwd[:cwd.rfind(sep)]
-
-DB_FILE = path.join(cwd, 'database.db')
+DB_FILE = path.join(ImageUtils.get_root(), 'database.db')
 
 class DB:
 	def __init__(self):
@@ -174,23 +175,23 @@ class DB:
 	''' Add user to list of either 'users' or 'newusers' table '''
 	def add_user(self, user, new=False):
 		cur = self.conn.cursor()
-		query = '''
-			insert
-				into %susers
-				values (
-					NULL,
-					"%s",
-					"",
-					%d,
-					%d,
-					0, 0, 0, 0, 0)
-		''' % (
-			'new' if new else '',
-			user,
-			int(time.time()),
-			int(time.time()))
+		if new:
+			q = '''
+				insert into newusers values ("%s")
+			''' % user
+		else:
+			now = int(time.time())
+			q = 'insert into users values ('
+			q += 'NULL,'         # user id
+			q += '"%s",' % user  # username
+			q += ' "" ,' % since # since id
+			q += ' %d ,' % now   # created
+			q += ' %d ,' % now   # updated
+			q += '  0 ,'         # deleted
+			q += '  0 ,'         # blacklisted
+			q += '0,0,0)'        # views, rating, ratings
 		try:
-			cur.execute(query)
+			cur.execute(q)
 		except sqlite3.IntegrityError, e:
 			self.debug('add_user: user "%s" already exists: %s' % (user, str(e)))
 			raise e
@@ -216,24 +217,6 @@ class DB:
 		cur.close()
 		return users[0][0]
 
-	def album_exists(self, user, albumdir):
-		cur = self.conn.cursor()
-		results = cur.execute('''
-			select *
-				from albums
-				where path = "%s"
-		''' % albumdir)
-		return len(results.fetchall()) > 0
-
-	def image_exists(self, user, imagedir):
-		cur = self.conn.cursor()
-		results = cur.execute('''
-			select *
-				from images
-				where path = "%s"
-		''' % imagedir)
-		return len(results.fetchall()) > 0
-
 	''' True if user has been added to 'users' or 'newusers', False otherwise '''
 	def user_already_added(self, user):
 		cur = self.conn.cursor()
@@ -249,9 +232,7 @@ class DB:
 				from newusers
 				where username like "%s"
 		''' % user)
-		if len(results.fetchall()) > 0:
-			return True
-		return False
+		return len(results.fetchall()) > 0
 
 	def get_last_since_id(self, user):
 		cur = self.conn.cursor()
@@ -272,16 +253,21 @@ class DB:
 		cur.execute(query)
 		self.conn.commit()
 	
-	def add_post(self, post):
+	def add_post(self, post, legacy=0):
 		userid = self.get_user_id(post.author)
 		q = 'insert into posts values ('
 		q += '"%s",' % post.id
-		q += '%d,'   % userid
+		q += ' %d ,' % userid
 		q += '"%s",' % post.title
 		q += '"%s",' % post.url
 		q += '"%s",' % post.subreddit
-		q += '%d,'   % post.over_18  # comment id
-		q += '%d'    % post.created
+		q += ' %d ,' % post.over_18  # comment id
+		q += ' %d ,' % post.created
+		q += ' %d ,' % legacy
+		if legacy == 0 and post.subreddit != '':
+			q += '"http://reddit.com/r/%s/comments/%s"' % (post.subreddit, post.id)
+		else:
+			q += '"http://reddit.com/comments/%s"' % post.id
 		q += ')'
 		cur = self.conn.cursor()
 		try:
@@ -292,7 +278,7 @@ class DB:
 		cur.close()
 		self.conn.commit()
 
-	def add_comment(self, comment):
+	def add_comment(self, comment, legacy=0):
 		userid = self.get_user_id(comment.author)
 		q = 'insert into comments values ('
 		q += '"%s",' % comment.id
@@ -300,7 +286,13 @@ class DB:
 		q += '"%s",' % comment.post_id
 		q += '"%s",' % comment.subreddit
 		q += '"%s",' % comment.body
-		q += ' %d )' % comment.created
+		q += ' %d ,' % comment.created
+		q += ' %d ,' % legacy
+		if legacy == 0 and post.subreddit != '':
+			q += '"http://reddit.com/r/%s/comments/%s/_/%s"' % (comment.subreddit, comment.post_id, comment.id)
+		else:
+			q += '"http://reddit.com/comments/%s/_/%s"' % (comment.post_id, comment.id)
+		q += ')'
 		cur = self.conn.cursor()
 		try:
 			result = cur.execute(q)
@@ -353,7 +345,7 @@ class DB:
 			result = cur.execute(q)
 		except sqlite3.IntegrityError, e:
 			# Column already exists
-			raise Exception('album already exists in DB (%s): %s' % (path, str(e)))
+			raise Exception('image already exists in DB (%s): %s' % (path, str(e)))
 		lastrow = cur.lastrowid
 		cur.close()
 		self.conn.commit()
@@ -364,73 +356,77 @@ class DB:
 	# STUPID EXTRA FUNCTIONS
 
 	def get_post_comment_id(self, pci):
-		if not '_' in pci: return ('', '', '')
+		if not '_' in pci:
+			raise Exception('unable to find post/comment/imgid from filename %s' % pci)
 		(pc, i) = pci.split('_')
 		if '-' in pc:
 			(post, comment) = pc.split('-')
 		else:
 			post = pc
-			comment = ''
+			comment = None
 		return (post, comment, i)
 
-	def add_existing_image(self, user, image):
-		(post, comment, imgid) = self.get_post_comment_id(image)
-		imagedir = path.join('users', user, image)
-		if self.image_exists(imagedir):
-			raise Exception('image already exists in DB: %s' % imagedir)
-		userid   = self.get_user_id(user)
-		url      = 'http://i.imgur.com/%s' % imgid
-		dims     = ImageUtils.dimensions(imagedir)
-		size     = path.getsize(imagedir)
-		thumb    = imagedir.replace('/users/', '/thumbs/')
-		ImageUtils.create_thumbnail(imagedir, thumb)
-		q = 'insert into images values ('
-		q += 'NULL,'            # imageid
-		q += '"%s",' % imagedir # image path
-		q += '%d,'   % userid   # user
-		q += '"%s",' % url      # source (url)
-		q += '%d,'   % dims[0]  # width
-		q += '%d,'   % dims[1]  # height
-		q += '%d,'   % size     # file size
-		q += '"%s",' % thumb    # thumbnail path
-		q += '"image",'         # image type
-		q += '-1,'              # album id
-		q += '"%s",' % post     # post id
-		q += '"%s",' % comment  # comment id
-		q += '0,0,0)'           # views, rating, ratings
-		cur = self.conn.cursor()
-		try:
-			result = cur.execute(q)
-		except sqlite3.IntegrityError, e:
-			# Column already exists
-			raise Exception('path to image already exists in DB (%s): %s' % (imagedir, str(e)))
-		cur.close()
-		self.conn.commit()
+	'''
+		Copy old image (/users/<user>/...) to new format (/content/<user>/...)
+		Create new thumbnail
+		Derive values for post/comment from filename
+	'''
+	def add_existing_image(self, user, oldimage, oldpath, subdir='', album_id=-1):
+		newimage  = path.join(ImageUtils.get_root(), 'content', user, subdir, oldimage)
+		thumbnail = path.join(ImageUtils.get_root(), 'content', user, subdir, 'thumbs', oldimage)
+		if path.exists(newimage):
+			raise Exception('image already exists: %s' % newimage)
 
-	def add_existing_album(self, user, album):
-		(post, comment, imgid) = self.get_post_comment_id(album)
-		albumdir = path.join('users', user, album)
-		if self.album_exists(user, album):
-			raise Exception('album already exists in DB: %s' % albumdir)
-		userid   = self.get_user_id(user)
-		url      = 'http://imgur.com/a/%s' % imgid
-		q = 'insert into albums values ('
-		q += 'NULL,'            # albumid
-		q += '"%s",' % albumdir # album path
-		q += '%d,'   % userid   # user
-		q += '"%s",' % url      # source (url)
-		q += '"%s",' % post     # post id
-		q += '"%s",' % comment  # comment id
-		q += '0,0,0)'           # views, rating, ratings
-		cur = self.conn.cursor()
+		copy2(oldimage, newimage)
 		try:
-			result = cur.execute(q)
-		except sqlite3.IntegrityError, e:
-			# Column already exists
-			raise Exception('path to album already exists in DB (%s): %s' % (albumdir, str(e)))
-		cur.close()
-		self.conn.commit()
-		pass
+			ImageUtils.create_thumbnail(newimage, thumbnail)
+		except Exception, e:
+			self.debug('failed to create thumbnail: %s' % str(e))
+			thumbnail = path.join(ImageUtils.get_root(), 'images', 'nothumb.png')
+
+		(post, comment, imgid) = self.get_post_comment_id(oldimage)
+		url  = 'http://i.imgur.com/%s' % imgid
+		dims = ImageUtils.get_image_dimensions(imagedir)
+		size = path.getsize(imagedir)
+		ImageUtils.create_thumbnail(imagedir, thumb)
+		self.add_image(newimage, user, url, 
+				dims[0], dims[1], size, thumbnail, 'image', 
+				album_id, post, comment)
+
+		if subdir != '' or album_id != -1: # Not an album
+			# Add post
+			p = Post()
+			p.id = post
+			p.author = user
+			if comment == None: p.url = url
+			p.created = path.getctime(oldpath)
+			try:
+				self.add_post(p, legacy=1)
+			except Exception, e:
+				self.debug('add_existing_image: %s' % str(e))
+			# Add comment
+			c = Comment()
+			c.id = comment
+			c.post_id = post
+			c.author = user
+			if comment != None: c.body = url
+			p.created = path.getctime(oldpath)
+			try:
+				self.add_comment(c, legacy=1)
+			except Exception, e:
+				self.debug('add_existing_image: %s' % str(e))
+
+	def add_existing_album(self, user, oldalbum, oldpath):
+		newalbum = path.join(ImageUtils.get_root(), 'content', user, album)
+		if path.exists(newalbum):
+			raise Exception('album already exists: %s' % newalbum)
+
+		(post, comment, imgid) = self.get_post_comment_id(album)
+		url = 'http://imgur.com/a/%s' % imgid
+		album_id = self.add_album(newalbum, user, url, post, comment)
+
+		for image in listdir(oldpath):
+			self.add_existing_image(user, image, oldpath, subdir=oldalbum, album_id=album_id)
 
 
 if __name__ == '__main__':

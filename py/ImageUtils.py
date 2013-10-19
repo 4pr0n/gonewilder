@@ -218,7 +218,7 @@ class ImageUtils(object):
 			ImageUtils.create_video_thumbnail(image, saveas)
 			return
 		if path.getsize(image) > ImageUtils.MAXIMUM_THUMBNAIL_SIZE:
-			raise Exception('Image too large to thumbnail. %db %db' % 
+			raise Exception('Image too large: %db %db' % 
 					(path.getsize(image), ImageUtils.MAXIMUM_THUMBNAIL_SIZE))
 		try:
 			im = Image.open(image)
@@ -228,12 +228,11 @@ class ImageUtils(object):
 		if width  > ImageUtils.MAXIMUM_THUMBNAIL_DIM or \
 		   height > ImageUtils.MAXIMUM_THUMBNAIL_DIM:
 			raise Exception(
-					'Image too large to create thumbnail. %dx%d > %dpx' % 
+					'Image too large: %dx%d > %dpx' % 
 					(width, height, ImageUtils.MAXIMUM_THUMBNAIL_DIM))
 			
 		if im.mode != 'RGB': im = im.convert('RGB')
 		im.thumbnail( (200,200), Image.ANTIALIAS)
-		ImageUtils.debug('create_thumbnail: saving %s' % saveas)
 		im.save(saveas, 'JPEG')
 
 	''' 
@@ -242,10 +241,7 @@ class ImageUtils(object):
 	'''
 	@staticmethod
 	def create_video_thumbnail(video, saveas):
-		cwd = getcwd()
-		if cwd.endswith('py'):
-			cwd = cwd[:cwd.rfind(sep)]
-		overlay = path.join(cwd, 'images', 'play_overlay.png')
+		overlay = path.join(ImageUtils.get_root(), 'images', 'play_overlay.png')
 		ffmpeg = '/usr/bin/ffmpeg'
 		if not path.exists(ffmpeg):
 			ffmpeg = '/opt/local/bin/ffmpeg'
@@ -277,13 +273,20 @@ class ImageUtils(object):
 
 	@staticmethod
 	def create_subdirectories(directory):
-		current = '/'
+		current = ''
 		for subdir in directory.split(sep):
 			if subdir == '': continue
 			current = path.join(current, subdir)
 			if not path.exists(current):
 				mkdir(current)
 
+	''' Get root working dir '''
+	@staticmethod
+	def get_root():
+		cwd = getcwd()
+		if cwd.endswith('py'):
+			return '..'
+		return '.'
 
 if __name__ == '__main__':
 	#url = 'http://www.sexykarma.com/gonewild/video/cum-compilation-YIdo9ntfsWo.html'

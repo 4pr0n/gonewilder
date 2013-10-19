@@ -1,5 +1,7 @@
+.DS_STORE
 *.db
 *.pyc
 *.swp
 *.jpg
 *.mp4
+/content/
