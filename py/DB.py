@@ -377,6 +377,11 @@ class DB:
 			# Can't properly handle tumblr links
 			self.debug('cannot properly handle tumblr links')
 			return
+		try:
+			dims = ImageUtils.get_image_dimensions(oldpath)
+		except:
+			self.debug('failed to load image: %s, skipping' % oldpath)
+			return
 		newimage  = path.join(ImageUtils.get_root(), 'content', user, subdir, oldimage)
 		newimage = newimage.replace('.jpeg.jpg', '.jpg')
 		thumbnail = path.join(ImageUtils.get_root(), 'content', user, subdir, 'thumbs', oldimage)
