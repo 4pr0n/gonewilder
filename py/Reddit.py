@@ -50,6 +50,28 @@ class Reddit(object):
 			stderr.write('%s\n' % text)
 
 	@staticmethod
+	def login(user, password):
+		Reddit.httpy.clear_cookies()
+		d = {
+				'user'   : user,
+				'passwd' : password,
+				'api_type' : 'json'
+			}
+		r = Reddit.httpy.oldpost('http://www.reddit.com/api/login/%s' % user, d)
+		if 'WRONG_PASSWORD' in r:
+			raise Exception('login: invalid password')
+		if 'RATELIMIT' in r:
+			raise Exception('login: rate limit')
+		try:
+			json = loads(r)
+		except Exception, e:
+			raise Exception('login: failed to parse response: %s' % r)
+		if not 'json' in json or not 'data' in json['json']:
+			raise Exception('login: failed: %s' % r)
+		# Logged in
+		Reddit.debug('logged in to reddit')
+
+	@staticmethod
 	def get(user, since=None, max_pages=None):
 		""" 
 			Get all comments and posts for a user since 'since'.
