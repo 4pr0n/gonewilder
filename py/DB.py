@@ -39,8 +39,8 @@ SCHEMA = {
 		'created   integer, \n\t' +
 		'legacy    integer, \n\t' +
 		'permalink string,  \n\t' +
-		'foreign key(userid) references users(id)',
-	
+		'foreign key(userid) references users(id)\n\t',
+
 	'comments' :
 		'\n\t' +
 		'id        string primary key, \n\t' +
@@ -51,7 +51,7 @@ SCHEMA = {
 		'created   integer, \n\t' +
 		'legacy    integer, \n\t' +
 		'permalink string,  \n\t' +
-		'foreign key(userid) references users(id)',
+		'foreign key(userid) references users(id)\n\t',
 
 	'albums' : 
 		'\n\t'
@@ -64,7 +64,7 @@ SCHEMA = {
 		'views   integer, \n\t' +
 		'rating  integer, \n\t' +
 		'ratings integer, \n\t' +
-		'foreign key(userid) references users(id)',
+		'foreign key(userid) references users(id)\n\t',
 
 	'images' :
 		'\n\t' +
@@ -85,6 +85,13 @@ SCHEMA = {
 		'ratings integer, \n\t' +
 		'foreign key(userid) references users(id), \n\t' +
 		'foreign key(albumid) references albums(id)\n\t',
+
+	'credentials' :
+		'\n\t' +
+		'site     string primary key, \n\t' +
+		'username string, \n\t' +
+		'password string  \n\t'
+
 }
 
 DB_FILE = path.join(ImageUtils.get_root(), 'database.db')
@@ -240,7 +247,7 @@ class DB:
 	def get_last_since_id(self, user):
 		cur = self.conn.cursor()
 		results = cur.execute('''
-			select max(sinceid)
+			select sinceid
 				from users
 				where username = "%s"
 		''' % user)
@@ -258,96 +265,95 @@ class DB:
 	
 	def add_post(self, post, legacy=0):
 		userid = self.get_user_id(post.author)
-		q = 'insert into posts values ('
-		q += '"%s",' % post.id
-		q += ' %d ,' % userid
-		q += '"%s",' % post.title
-		q += '"%s",' % post.url
-		q += '"%s",' % post.subreddit
-		q += ' %d ,' % post.over_18  # comment id
-		q += ' %d ,' % post.created
-		q += ' %d ,' % legacy
-		if legacy == 0 and post.subreddit != '':
-			q += '"http://reddit.com/r/%s/comments/%s"' % (post.subreddit, post.id)
-		else:
-			q += '"http://reddit.com/comments/%s"' % post.id
-		q += ')'
+		values = [ (
+				post.id,         # reddit post id
+				userid,          # id of user in 'users' table
+				post.title,      # title of reddit post
+				post.url,        # reddit post url
+				post.subreddit,  # subreddit
+				post.over_18,    # NSFW
+				post.created,    # UTC timestamp
+				legacy,          # If post was generated (legacy) or retrieved in-full from reddit
+				post.permalink() # link to post on reddit
+			) ]
+		q = 'insert into posts values (%s)' % ','.join(['?'] * len(values[0]))
 		cur = self.conn.cursor()
 		try:
-			result = cur.execute(q)
-		except sqlite3.IntegrityError, e:
-			# Column already exists
+			result = cur.executemany(q, values)
+		except sqlite3.IntegrityError, e: # Column already exists
 			raise Exception('post already exists in DB (%s): %s' % (post.id, str(e)))
 		cur.close()
 		self.conn.commit()
 
 	def add_comment(self, comment, legacy=0):
 		userid = self.get_user_id(comment.author)
-		q = 'insert into comments values ('
-		q += '"%s",' % comment.id
-		q += ' %d ,' % userid
-		q += '"%s",' % comment.post_id
-		q += '"%s",' % comment.subreddit
-		q += '"%s",' % comment.body
-		q += ' %d ,' % comment.created
-		q += ' %d ,' % legacy
-		if legacy == 0 and comment.subreddit != '':
-			q += '"http://reddit.com/r/%s/comments/%s/_/%s"' % (comment.subreddit, comment.post_id, comment.id)
-		else:
-			q += '"http://reddit.com/comments/%s/_/%s"' % (comment.post_id, comment.id)
-		q += ')'
+		values = [ (
+				comment.id,         # reddit comment id
+				userid,             # id of user in 'users' table
+				comment.post_id,    # reddit post id
+				comment.subreddit,  # subreddit
+				comment.body,       # body of comment
+				comment.created,    # utc timestamp
+				legacy,             # if comment was 'generated' (legacy) or retrieved from reddit
+				comment.permalink() # link to comment
+			) ]
+		q = 'insert into comments values (%s)' % ','.join(['?'] * len(values[0]))
 		cur = self.conn.cursor()
 		try:
-			result = cur.execute(q)
-		except sqlite3.IntegrityError, e:
-			# Column already exists
+			result = cur.executemany(q, values)
+		except sqlite3.IntegrityError, e: # Column already exists
 			raise Exception('comment already exists in DB (%s): %s' % (comment.id, str(e)))
 		cur.close()
 		self.conn.commit()
 
 	def add_album(self, path, user, url, postid, commentid):
 		userid = self.get_user_id(user)
-		q = 'insert into albums values ('
-		q += 'NULL,'  # albumid
-		q += '"%s",'  % path
-		q += ' %d ,'  % userid
-		q += '"%s",'  % url
-		q += '"%s",'  % postid
-		q += 'NULL,' if commentid == None else '"%s",' % commentid
-		q += '0,0,0)' # views, rating, ratings
+		values = [ (
+				None,      # albumid
+				path,      # path to album (filesystem)
+				userid,    # if of user in 'users' table
+				url,       # url to album
+				postid,    # reddit post id
+				commentid, # reddit comment id
+				0, 0, 0
+			) ]
+		q = 'insert into albums values (%s)' % ','.join(['?'] * len(values[0]))
 		cur = self.conn.cursor()
 		try:
-			result = cur.execute(q)
-		except sqlite3.IntegrityError, e:
-			# Column already exists
+			result = cur.executemany(q, values)
+		except sqlite3.IntegrityError, e: # Column already exists
 			raise Exception('album already exists in DB (%s): %s' % (path, str(e)))
 		lastrow = cur.lastrowid
 		cur.close()
 		self.conn.commit()
 		return lastrow
 
+	'''
+		Add an "image" to the database. Might be a video
+	'''
 	def add_image(self, path, user, url, width, height, size, thumb,
 	                    mediatype, albumid, postid, commentid):
 		userid = self.get_user_id(user)
-		q = 'insert into images values ('
-		q += 'NULL,'  # imageid
-		q += '"%s",'  % path
-		q += ' %d ,'  % userid
-		q += '"%s",'  % url
-		q += ' %d ,'  % width
-		q += ' %d ,'  % height
-		q += ' %d ,'  % size
-		q += '"%s",'  % thumb
-		q += '"%s",'  % mediatype
-		q += 'NULL,' if albumid   == None else '"%s",' % albumid
-		q += '"%s",'  % postid
-		q += 'NULL,' if commentid == None else '"%s",' % commentid
-		q += '0,0,0)' # views, rating, ratings
+		values = [ (
+				None,      # imageid
+				path,      # path to image (locally)
+				userid,    # id of user in 'users' table
+				url,       # image source
+				width,     # image width
+				height,    # image height
+				size,      # size of image (in bytes)
+				thumb,     # path to thumbnail (locally)
+				mediatype, # 'image' or 'video'
+				albumid,   # album in which the image is contained
+				postid,    # reddit post
+				commentid, # reddit comment
+				0, 0, 0    # views, rating, ratings
+			) ]
+		q = 'insert into images values (%s)' % ','.join(['?'] * len(values[0]))
 		cur = self.conn.cursor()
 		try:
-			result = cur.execute(q)
-		except sqlite3.IntegrityError, e:
-			# Column already exists
+			result = cur.executemany(q, values)
+		except sqlite3.IntegrityError, e: # Column already exists
 			raise Exception('image already exists in DB (%s): %s' % (path, str(e)))
 		lastrow = cur.lastrowid
 		cur.close()
@@ -519,6 +525,14 @@ class DB:
 				except Exception, e:
 					#self.debug('add_existing_image: %s' % str(e))
 					pass
+	
+	def get_credentials(self, site):
+		q = 'select username,password from credentials where site = "%s"' % site
+		cur = self.conn.cursor()
+		(username, password) = cur.execute(q).fetchone()
+		cur.close()
+		return (username, password)
+		
 
 
 if __name__ == '__main__':
