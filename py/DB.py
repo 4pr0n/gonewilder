@@ -106,9 +106,11 @@ class DB:
 				self.create_table(key, SCHEMA[key])
 	
 	def debug(self, text):
-		self.logger.write('DB: %s\n' % text)
+		tstamp = time.strftime('[%Y-%m-%dT%H:%M:%SZ]', time.gmtime())
+		text = '%s DB: %s' % (tstamp, text)
+		self.logger.write('%s\n' % text)
 		if self.logger != stderr:
-			stderr.write('DB: %s\n' % text)
+			stderr.write('%s\n' % text)
 	
 	def create_table(self, table_name, schema):
 		cur = self.conn.cursor()
@@ -194,7 +196,7 @@ class DB:
 		try:
 			cur.execute(q)
 		except sqlite3.IntegrityError, e:
-			self.debug('add_user: user "%s" already exists: %s' % (user, str(e)))
+			self.debug('add_user: user "%s" already exists in %susers: %s' % (user, 'new' if new else '', str(e)))
 			raise e
 		self.conn.commit()
 
@@ -289,7 +291,7 @@ class DB:
 		q += '"%s",' % comment.body
 		q += ' %d ,' % comment.created
 		q += ' %d ,' % legacy
-		if legacy == 0 and post.subreddit != '':
+		if legacy == 0 and comment.subreddit != '':
 			q += '"http://reddit.com/r/%s/comments/%s/_/%s"' % (comment.subreddit, comment.post_id, comment.id)
 		else:
 			q += '"http://reddit.com/comments/%s/_/%s"' % (comment.post_id, comment.id)
@@ -352,13 +354,29 @@ class DB:
 		self.conn.commit()
 		return lastrow
 
-	''' Get list of users '''
+	'''
+		Get list of users.
+		If "new" is flagged:
+			* Deletes list of 'newusers'
+			* Adds 'newusers' to 'users' list.
+			* Returns list of 'newusers'
+	'''
 	def get_users(self, new=False):
-		q = 'select username from %susers' % 'new' if new else ''
+		q = 'select username from %susers' % ('new' if new else '')
 		cur = self.conn.cursor()
 		users = cur.execute(q).fetchall()
-		cur.close()
-		return [x[0] for x in result]
+		if new:
+			# Delete list of new users, add to new users list
+			for user in [x[0] for x in users]:
+				delq = 'delete from newusers where username = "%s"' % user
+				cur.execute(delq)
+				try: self.add_user(user, new=False)
+				except: pass
+			cur.close()
+			self.conn.commit()
+		else:
+			cur.close()
+		return [x[0] for x in users]
 
 	########################
 	# STUPID EXTRA FUNCTIONS
@@ -385,7 +403,7 @@ class DB:
 			self.debug('cannot properly handle tumblr links')
 			return
 		try:
-			dims = ImageUtils.get_image_dimensions(oldpath)
+			dims = ImageUtils.get_dimensions(oldpath)
 		except:
 			self.debug('failed to load image: %s, skipping' % oldpath)
 			return
@@ -408,7 +426,7 @@ class DB:
 
 		(post, comment, imgid) = self.get_post_comment_id(oldimage)
 		url  = 'http://i.imgur.com/%s' % imgid
-		dims = ImageUtils.get_image_dimensions(newimage)
+		dims = ImageUtils.get_dimensions(newimage)
 		size = path.getsize(newimage)
 		try:
 			ImageUtils.create_thumbnail(newimage, thumbnail)

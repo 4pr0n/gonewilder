@@ -5,20 +5,23 @@ from os       import path, getcwd, sep, mkdir
 from PIL      import Image # Python Image Library
 from commands import getstatusoutput
 from sys      import stderr
+from time     import strftime, gmtime
 
 class ImageUtils(object):
 	logger = stderr
 
 	# Static class variables
 	MAXIMUM_THUMBNAIL_SIZE = 5 * 1024 * 1024 # In bytes
-	MAXIMUM_THUMBNAIL_DIM  = 4000 # In pixels
+	MAXIMUM_THUMBNAIL_DIM  = 5000 # In pixels
 	httpy = Httpy()
 
 	@staticmethod
 	def debug(text):
-		ImageUtils.logger.write('ImageUtils: %s\n' % text)
+		tstamp = strftime('[%Y-%m-%dT%H:%M:%SZ]', gmtime())
+		text = '%s ImageUtils: %s' % (tstamp, text)
+		ImageUtils.logger.write('%s\n' % text)
 		if ImageUtils.logger != stderr:
-			stderr.write('ImageUtils: %s\n' % text)
+			stderr.write('%s\n' % text)
 
 	'''
 		Given a URL, return a tuple containig:
@@ -142,7 +145,6 @@ class ImageUtils(object):
 			return ('album', albumid, ImageUtils.get_imgur_album(url))
 		else:
 			# Image
-			ImageUtils.debug('imgur: found %s' % url)
 			return ('image', None, [ImageUtils.get_imgur_highest_res(url)])
 		raise Exception('unable to get urls from %s' % url)
 
@@ -155,38 +157,39 @@ class ImageUtils(object):
 		url = 'http://%s' % '/'.join(fields)
 		# Get album
 		result = []
-		ImageUtils.debug('imgur_album: loading %s' % url)
+		#ImageUtils.debug('imgur_album: loading %s' % url)
 		r = ImageUtils.httpy.get('%s/noscript' % url)
 		for image in ImageUtils.httpy.between(r, '<img src="//i.', '"'):
 			image = 'http://i.%s' % image
 			image = ImageUtils.get_imgur_highest_res(image)
 			result.append(image)
-		ImageUtils.debug('imgur_album: found %d images in album' % len(result))
+		ImageUtils.debug('get_imgur_album: found %d images in album' % len(result))
 		return result
 	
 	@staticmethod
 	def get_imgur_highest_res(url):
-		return url
 		if not '/' in url:
 			raise Exception('invalid url: %s' % url)
 		fname = url.split('/')[-1]
 		if '.' in fname and fname[fname.rfind('.')-1] == 'h':
 			# Might not be highest res, revert to image-page
 			noh = url[:url.rfind('h.')] + url[url.rfind('h.')+1:]
-			ImageUtils.debug('imgur_highest_res: get_meta on %s' % noh)
 			meta = ImageUtils.httpy.get_meta(noh)
 			if 'Content-Length' in meta and meta['Content-Length'] == '503':
+				ImageUtils.debug('imgur_highest_res: %s -> %s' % (url, url))
 				return url
 			else:
+				ImageUtils.debug('imgur_highest_res: %s -> %s' % (url, noh))
 				return noh
 		elif not '.' in fname:
 			# Need to get full-size and extension
-			ImageUtils.debug('imgur_highest_res: getting %s' % url)
 			r = ImageUtils.httpy.get(url)
 			if not '<link rel="image_src" href="' in r:
 				raise Exception('image not found')
 			image = ImageUtils.httpy.between(r, '<link rel="image_src" href="', '"')[0]
-			return 'http:%s' % image
+			if image.startswith('//'): image = 'http:%s' % image
+			ImageUtils.debug('imgur_highest_res: %s -> %s' % (url, image))
+			return image
 		return url
 
 
@@ -262,10 +265,36 @@ class ImageUtils(object):
 		except:
 			raise Exception('failed to generate thumbnail using ffmpeg: %s' % output)
 
+	'''
+		Get width/height of image or video
+	'''
 	@staticmethod
-	def get_image_dimensions(image):
-		im = Image.open(image)
-		return im.size
+	def get_dimensions(image):
+		if image.lower().endswith('.mp4') or \
+		   image.lower().endswith('.flv'):
+			ffmpeg = '/usr/bin/ffmpeg'
+			if not path.exists(ffmpeg):
+				ffmpeg = '/opt/local/bin/ffmpeg'
+				if not path.exists(ffmpeg):
+					raise Exception('ffmpeg not found; unable to get video dimensions')
+			(status, output) = getstatusoutput('%s -i "%s"' % (ffmpeg, image))
+			for line in output.split('\n'):
+				if 'Stream' in line and 'Video:' in line:
+					line = line[line.find('Video:')+6:]
+					fields = line.split(', ')
+					dims = fields[2]
+					if not 'x' in dims: raise Exception('invalid video dimensions')
+					(width, height) = dims.split('x')
+					try:
+						width = int(width)
+						height = int(height)
+					except:
+						raise Exception('invalid video dimensions: %sx%s' % (width, height))
+					return (width, height)
+			raise Exception('unable to get video dimensions')
+		else:
+			im = Image.open(image)
+			return im.size
 
 
 	###############

@@ -5,6 +5,7 @@ from os         import path, mkdir
 from sys        import stderr
 from Reddit     import Reddit, Child, Post, Comment
 from ImageUtils import ImageUtils
+from time       import strftime, gmtime
 
 class Gonewild(object):
 	logger = stderr
@@ -12,9 +13,11 @@ class Gonewild(object):
 	
 	@staticmethod
 	def debug(text):
-		Gonewild.logger.write('Gonewild: %s\n' % text)
+		tstamp = strftime('[%Y-%m-%dT%H:%M:%SZ]', gmtime())
+		text = '%s Gonewild: %s' % (tstamp, text)
+		Gonewild.logger.write('%s\n' % text)
 		if Gonewild.logger != stderr:
-			stderr.write('Gonewild: %s\n' % text)
+			stderr.write('%s\n' % text)
 
 	@staticmethod
 	def user_already_added(user):
@@ -47,37 +50,42 @@ class Gonewild(object):
 		try:
 			children = Reddit.get(user, since=since_id)
 		except Exception, e:
-			pass
+			Gonewild.debug('poll_user: error %s' % str(e))
+			return
 		Gonewild.debug('poll_user: %d new posts and comments found' % len(children))
 
 		if len(children) == 0:
-			Gonewild.debug('poll_user: no new posts/comments found')
+			#Gonewild.debug('poll_user: no new posts/comments found')
 			return
 
 		# Set lats 'since' to the most-recent post/comment ID
-		Gonewild.debug('poll_user: setting most-recent since_id to "%s"' % children[0].id)
-		Gonewild.db.set_last_since_id(user, children[0].id)
+		#Gonewild.debug('poll_user: setting most-recent since_id to "%s"' % children[0].id)
+		#Gonewild.db.set_last_since_id(user, children[0].id)
 
 		for child in children:
 			urls = Gonewild.get_urls(child)
 			try:
 				if type(child) == Post:
+					#Gonewild.debug('   Post: %d urls: %s "%s"' % (len(urls), child.permalink(), child.title.replace('\n', '')[0:30]))
 					Gonewild.db.add_post(child)
 				elif type(child) == Comment:
+					#Gonewild.debug('Comment: %d urls: %s "%s"' % (len(urls), child.permalink(), child.body.replace('\n', '')[0:30]))
 					Gonewild.db.add_comment(child)
 			except Exception, e:
-				Gonewild.debug('poll_user: could not add post/comment to DB: %s' % str(e))
-				continue
-			Gonewild.debug('poll_user: found %d url(s) in child' % len(urls))
-			for url_index, url in enumerate(urls):
-				Gonewild.process_url(url, url_index, child)
+				Gonewild.debug('poll_user: %s' % str(e))
+				continue # If we can't add the post/comment to DB, skip it
+			if len(urls) > 0:
+				Gonewild.debug('poll_user: found %d url(s) in child %s' % (len(urls), child.permalink()))
+				for url_index, url in enumerate(urls):
+					Gonewild.process_url(url, url_index, child)
+		Gonewild.debug('poll_user: done')
 		Gonewild.logger.close()
 
 	''' Returns list of URLs found in a reddit child (post or comment) '''
 	@staticmethod
 	def get_urls(child):
 		if type(child) == Post:
-			if child.selftext != None:
+			if child.selftext != None and child.selftext != '':
 				return Reddit.get_links_from_text(child.selftext)
 			elif child.url != None:
 				return [child.url]
@@ -89,7 +97,7 @@ class Gonewild(object):
 	''' Downloads media(s) at url, adds to database. '''
 	@staticmethod
 	def process_url(url, url_index, child):
-		Gonewild.debug('process_url: processing url %s' % url)
+		Gonewild.debug('process_url: %s' % url)
 		userid = Gonewild.db.get_user_id(child.author)
 		if type(child) == Post:
 			base_fname = '%s-%d' % (child.id, url_index)
@@ -113,7 +121,7 @@ class Gonewild(object):
 			# Album!
 			albumname = '%s-%s' % (base_fname, albumname)
 			working_dir = path.join(working_dir, albumname)
-			Gonewild.debug('process_url: adding album to database')
+			#Gonewild.debug('process_url: adding album to database')
 			album_id = Gonewild.db.add_album(
 					working_dir,
 					child.author,
@@ -134,26 +142,33 @@ class Gonewild(object):
 
 			# Download URL
 			try:
-				Gonewild.debug('process_url: #%d downloading %s' % (media_index, media))
+				Gonewild.debug('process_url: downloading #%d %s' % (media_index + 1, media))
 				ImageUtils.httpy.download(media, saveas)
+				if path.getsize(saveas) == 503:
+					raise Exception('503b = removed')
 			except Exception, e:
-				Gonewild.debug('process_url: failed to download: %s, moving on' % str(e))
+				Gonewild.debug('process_url: failed to download #%d: %s, moving on' % (media_index + 1, str(e)))
 				continue
-			# Get image information (width, height, size)
-			(width, height) = ImageUtils.get_image_dimensions(saveas)
+
+			# Get media information (width, height, size)
+			try:
+				(width, height) = ImageUtils.get_dimensions(saveas)
+			except Exception, e:
+				# If we cannot process the media file, skip it!
+				Gonewild.debug('process_url: #%d %s' % (media_index + 1, str(e)))
+				continue
 			size = path.getsize(saveas)
 
 			# Create thumbnail
 			savethumbas = path.join(working_dir, 'thumbs', fname)
 			try:
-				Gonewild.debug('process_url: creating thumbnail %s' % savethumbas)
+				#Gonewild.debug('process_url: #%d creating thumbnail %s' % (media_index + 1, savethumbas))
 				ImageUtils.create_thumbnail(saveas, savethumbas)
 			except Exception, e:
 				savethumbas = path.join(ImageUtils.get_root(), 'images', 'nothumb.png')
-				Gonewild.debug('process_url: failed to create thumb: %s, using default' % str(e))
+				Gonewild.debug('process_url: failed to create thumb #%d: %s, using default' % (media_index + 1, str(e)))
 
 			# Add to DB
-			Gonewild.debug('process_url: adding image to database...')
 			Gonewild.db.add_image(
 					saveas,
 					child.author,
@@ -167,12 +182,20 @@ class Gonewild(object):
 					postid,
 					commid
 			)
+			#Gonewild.debug('process_url: added image to database')
+	
+	@staticmethod
+	def infinite_loop():
+		users = Gonewild.db.get_users(new=False)
+		while True:
+			for user in users:
+				newusers = Gonewild.db.get_users(new=True) # Check for newly-added users
+				for newuser in newusers:
+					users.append(newuser)       # Add new user to existing list
+					Gonewild.poll_user(newuser) # Poll new user for content
+				Gonewild.poll_user(user) # Poll user for content
 
 if __name__ == '__main__':
-	user = '4_pr0n' # 'hornysailor80'
-	since = 'ccspog9' # cct5h96
-	try: Gonewild.db.add_user(user)
+	try: Gonewild.db.add_user('delectable_me', new=True)
 	except: pass
-	Gonewild.db.set_last_since_id(user, since)
-	Gonewild.poll_user(user)
-
+	Gonewild.infinite_loop()

@@ -2,7 +2,7 @@
 
 from json  import loads
 from Httpy import Httpy
-from time  import sleep
+from time  import sleep, strftime, gmtime
 from sys   import stderr
 
 class Child(object):
@@ -19,12 +19,22 @@ class Post(Child,object):
 		self.url      = ''
 		self.selftext = ''
 		self.title    = ''
+	def permalink(self):
+		if self.subreddit != '':
+			return 'http://reddit.com/r/%s/comments/%s' % (self.subreddit, self.id)
+		else:
+			return 'http://reddit.com/comments/%s' % self.id
 
 class Comment(Child,object):
 	def __init__(self):
 		super(Comment,self).__init__()
 		self.body    = ''
 		self.post_id = ''
+	def permalink(self):
+		if self.subreddit != '':
+			return 'http://reddit.com/r/%s/comments/%s/_/%s' % (self.subreddit, self.post_id, self.id)
+		else:
+			return 'http://reddit.com/comments/%s/_/%s' % (self.post_id, self.id)
 
 ''' Retrieve posts/comments from reddit '''
 class Reddit(object):
@@ -33,9 +43,11 @@ class Reddit(object):
 
 	@staticmethod
 	def debug(text):
-		Reddit.logger.write('Reddit: %s\n' % text)
+		tstamp = strftime('[%Y-%m-%dT%H:%M:%SZ]', gmtime())
+		text = '%s Reddit: %s' % (tstamp, text)
+		Reddit.logger.write('%s\n' % text)
 		if Reddit.logger != stderr:
-			stderr.write('Reddit: %s\n' % text)
+			stderr.write('%s\n' % text)
 
 	@staticmethod
 	def get(user, since=None, max_pages=None):
@@ -46,20 +58,21 @@ class Reddit(object):
 		results = []
 		url = 'http://www.reddit.com/user/%s.json' % user
 		Reddit.debug('loading %s' % url)
+		sleep(2)
 		r = Reddit.httpy.get(url)
 		page = 1
 		while True:
 			try:
 				json = loads(r)
 			except Exception, e:
-				Reddit.debug('get: failed to load JSON: %s' % str(e))
+				Reddit.debug('failed to load JSON: %s' % str(e))
 				return results
 			if 'error' in json and json['error'] == 404:
-				raise Exception('deleted account')
+				raise Exception('account %s is deleted (404)' % user)
 			if not 'data' in json or not 'children' in json['data']:
 				return []
 			children = json['data']['children']
-			Reddit.debug('get: found %d posts/comments' % len(children))
+			#Reddit.debug('get: found %d posts/comments' % len(children))
 			for child in children:
 				if since != None and child['data']['id'] == since:
 					return results
@@ -95,9 +108,9 @@ class Reddit(object):
 				Reddit.debug('get: hit end of posts/comments')
 				break
 			if max_pages != None and max_pages >= page: break
-			sleep(2)
 			next_url = '%s?after=%s' % (url, after)
 			Reddit.debug('loading %s' % next_url)
+			sleep(2)
 			r = Reddit.httpy.get(next_url)
 			page += 1
 		return results

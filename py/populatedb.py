@@ -7,6 +7,17 @@ from ImageUtils import ImageUtils
 db = DB()
 root = ImageUtils.get_root()
 
+'''
+	Iterates over existing sets,
+	adds sets to database,
+	attempts to populate DB with information based on filenames:
+		* URL (http://i.imgur.com/<image>
+		* Post ID
+		* Comment ID
+		* Creation time
+	Copies existing set to new directory (/content/),
+	Generates new thumbnails for the sets
+'''
 def populate_db():
 	for user in listdir(path.join(root, 'users')):
 		userdir = path.join(root, 'users', user)
@@ -22,6 +33,11 @@ def populate_db():
 				print "album: %s" % itempath
 				db.add_existing_album(user, item, itempath)
 
+'''
+	Iterate over every user, 
+	Get most-recent post id,
+	Set user's "last since" id to the latest post id
+'''
 def set_last_since():
 	cur = db.conn.cursor()
 	query = 'select username,themax from users,(select userid,max(posts.id) as themax from posts group by posts.userid) where userid = users.id'
@@ -30,4 +46,6 @@ def set_last_since():
 		db.set_last_since_id(user, since)
 
 if __name__ == '__main__':
-	set_last_since()
+	#populate_db()
+	#set_last_since()
+	pass
