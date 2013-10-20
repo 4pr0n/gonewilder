@@ -352,6 +352,13 @@ class DB:
 		self.conn.commit()
 		return lastrow
 
+	''' Get list of users '''
+	def get_users(self, new=False):
+		q = 'select username from %susers' % 'new' if new else ''
+		cur = self.conn.cursor()
+		users = cur.execute(q).fetchall()
+		cur.close()
+		return [x[0] for x in result]
 
 	########################
 	# STUPID EXTRA FUNCTIONS
