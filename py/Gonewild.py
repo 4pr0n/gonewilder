@@ -38,7 +38,8 @@ class Gonewild(object):
 		return self.db.user_already_added(user)
 
 	def user_has_gone_wild(self, user):
-		children = Reddit.get(user)
+		# Look at last 100 submissions
+		children = Reddit.get('%s/submitted' % user, max_pages=1)
 		for child in children:
 			if type(child) == Post:
 				if child.subreddit == 'gonewild' or \
@@ -69,6 +70,11 @@ class Gonewild(object):
 		try:
 			children = Reddit.get(user, since=since_id)
 		except Exception, e:
+			if '404: Not Found' in str(e):
+				# User is deleted, mark it as such
+				self.debug('poll_user: user is 404, marking as deleted')
+				self.db.mark_as_deleted(user)
+				return
 			self.debug('poll_user: error %s' % str(e))
 			return
 		self.debug('poll_user: %d new posts and comments found' % len(children))
@@ -78,8 +84,8 @@ class Gonewild(object):
 			return
 
 		# Set lats 'since' to the most-recent post/comment ID
-		#self.debug('poll_user: setting most-recent since_id to "%s"' % children[0].id)
-		#self.db.set_last_since_id(user, children[0].id)
+		self.debug('poll_user: setting most-recent since_id to "%s"' % children[0].id)
+		self.db.set_last_since_id(user, children[0].id)
 
 		for child in children:
 			urls = self.get_urls(child)
@@ -198,6 +204,7 @@ class Gonewild(object):
 					postid,
 					commid
 			)
+		self.db.update_user(child.author)
 	
 	def infinite_loop(self):
 		users = self.db.get_users(new=False)
@@ -211,7 +218,8 @@ class Gonewild(object):
 
 if __name__ == '__main__':
 	gw = Gonewild()
-	#try: Gonewild.db.add_user('aiviloco', new=True)
-	try: gw.db.add_user('delectable_me', new=True)
-	except: pass
+	user = '-delrey'
+	if not gw.db.user_already_added(user):
+		gw.db.add_user(user, new=True)
 	gw.infinite_loop()
+	#print 'user has gone wild: %s' % gw.user_has_gone_wild('thediggitydank')

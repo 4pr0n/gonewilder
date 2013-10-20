@@ -69,7 +69,7 @@ class Reddit(object):
 		if not 'json' in json or not 'data' in json['json']:
 			raise Exception('login: failed: %s' % r)
 		# Logged in
-		Reddit.debug('logged in to reddit')
+		Reddit.debug('logged in')
 
 	@staticmethod
 	def get(user, since=None, max_pages=None):
@@ -81,13 +81,20 @@ class Reddit(object):
 		url = 'http://www.reddit.com/user/%s.json' % user
 		Reddit.debug('loading %s' % url)
 		sleep(2)
-		r = Reddit.httpy.get(url)
+		try:
+			r = Reddit.httpy.get(url)
+		except Exception, e:
+			Reddit.debug('exception: %s' % str(e))
+			raise e
+		if r.strip() == '':
+			# User is deleted
+			raise Exception('user is deleted')
 		page = 1
 		while True:
 			try:
 				json = loads(r)
 			except Exception, e:
-				Reddit.debug('failed to load JSON: %s' % str(e))
+				Reddit.debug('failed to load JSON: %s\n%s' % (str(e), r))
 				return results
 			if 'error' in json and json['error'] == 404:
 				raise Exception('account %s is deleted (404)' % user)

@@ -361,14 +361,15 @@ class DB:
 		return lastrow
 
 	'''
-		Get list of users.
+		Get list of (non-deleted) users.
 		If "new" is flagged:
 			* Deletes list of 'newusers'
 			* Adds 'newusers' to 'users' list.
 			* Returns list of 'newusers'
 	'''
 	def get_users(self, new=False):
-		q = 'select username from %susers' % ('new' if new else '')
+		if new: q = 'select username from newusers'
+		else:   q = 'select username from users where deleted = 0'
 		cur = self.conn.cursor()
 		users = cur.execute(q).fetchall()
 		if new:
@@ -533,7 +534,25 @@ class DB:
 		cur.close()
 		return (username, password)
 		
+	def update_user(self, user):
+		cur = self.conn.cursor()
+		query = '''
+			update users
+				set updated = %d
+				where username = "%s"
+		''' % (int(time.time()), user)
+		cur.execute(query)
+		self.conn.commit()
 
+	def mark_as_deleted(self, user):
+		cur = self.conn.cursor()
+		query = '''
+			update users
+				set deleted = 1
+				where username = "%s"
+		''' % (user)
+		cur.execute(query)
+		self.conn.commit()
 
 if __name__ == '__main__':
 	db = DB()

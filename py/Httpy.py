@@ -83,31 +83,19 @@ class Httpy:
 		if not 'User-agent' in headers:
 			headers['User-agent'] = self.user_agent
 		
-		try_again = True
-		while try_again:
-			try:
-				req = urllib2.Request(url, headers=headers)
-				handle = self.urlopen(req)
-				
-			except IOError, e:
-				if str(e) == 'HTTP Error 504: Gateway Time-out' or \
-					 str(e) == 'getaddrinfo failed':
-					try_again = True
-					time.sleep(2)
-				
-				else: return ''
+		try:
+			req = urllib2.Request(url, headers=headers)
+			handle = self.urlopen(req)
 			
-			except httplib.HTTPException: return ''
-			except UnicodeEncodeError: return ''
-			except ValueError: return ''
-				
-			else:
-				try_again = False
-			
+		except Exception, e:
+			if self.debugging: stderr.write('Httpy: Exception while creating request: %s\n' % str(e))
+			raise e
+
 		try:
 			result = handle.read()
-		except IncompleteRead:
-			return ''
+		except Exception, e:
+			if self.debugging: stderr.write('Httpy: Exception while reading response: %s\n' % str(e))
+			raise e
 		
 		return result
 
