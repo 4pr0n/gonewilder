@@ -15,9 +15,11 @@ from time       import strftime, gmtime
 class Gonewild(object):
 
 	def __init__(self):
-		self.logger = open(path.join(ImageUtils.get_root(), 'history.log'), 'a')
-		self.db     = DB() # Database instance
-		self.reddit = Reddit()
+		# Single file that all output is written to, to track usage
+		self.root_log = open(path.join(ImageUtils.get_root(), 'history.log'), 'a')
+		self.logger   = self.root_log # Logger used by helper classes
+		self.db       = DB() # Database instance
+		self.reddit   = Reddit()
 		try:
 			(username, password) = self.db.get_credentials('reddit')
 			try:
@@ -30,9 +32,10 @@ class Gonewild(object):
 	def debug(self, text):
 		tstamp = strftime('[%Y-%m-%dT%H:%M:%SZ]', gmtime())
 		text = '%s Gonewild: %s' % (tstamp, text)
-		self.logger.write('%s\n' % text)
-		if self.logger != stderr:
-			stderr.write('%s\n' % text)
+		self.root_log.write('%s\n' % text)
+		if self.logger != self.root_log:
+			self.logger.write('%s\n' % text)
+		stderr.write('%s\n' % text)
 
 	def user_already_added(self, user):
 		return self.db.user_already_added(user)
@@ -105,6 +108,7 @@ class Gonewild(object):
 					self.process_url(url, url_index, child)
 		self.debug('poll_user: done')
 		self.logger.close()
+		self.logger = self.root_log
 
 	''' Returns list of URLs found in a reddit child (post or comment) '''
 	def get_urls(self, child):
