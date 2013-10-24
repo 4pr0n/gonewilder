@@ -1,14 +1,13 @@
 #!/usr/bin/python
-from ImageUtils import ImageUtils
 import time
 from os import path, listdir
-from shutil import copy2
 from sys import stderr
+from shutil import copy2
 from Reddit import Comment, Post
+from ImageUtils import ImageUtils
 
 try:                import sqlite3
 except ImportError: import sqlite as sqlite3
-
 
 SCHEMA = {
 	'newusers' :
@@ -383,7 +382,7 @@ class DB:
 			self.conn.commit()
 		else:
 			cur.close()
-		return [x[0] for x in users]
+		return [str(x[0]) for x in users]
 
 	########################
 	# STUPID EXTRA FUNCTIONS
