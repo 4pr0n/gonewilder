@@ -74,7 +74,7 @@ while i < len(results):
 		oldpost['over_18']   = int(post.over_18)
 		oldpost['legacy']    = 0
 		oldpost['id']        = post.id
-		Reddit.debug('updating %s by %s titled "%s"' % (post.id, post.author, post.title))
+		Reddit.debug('updating post %s by %s' % (post.id, post.author))
 		update_post(oldpost)
 	db.conn.commit()
 	i += posts_per_page
