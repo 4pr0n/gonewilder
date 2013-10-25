@@ -77,6 +77,7 @@ while i < len(results):
 		oldpost['id']        = post.id
 		Reddit.debug('updating post %s by %s' % (post.id, post.author))
 		update_post(oldpost)
+	Reddit.debug('%d/%d - %d remaining' % (i, len(results), len(results)-i))
 	db.conn.commit()
 	i += posts_per_page
 
