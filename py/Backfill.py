@@ -9,6 +9,7 @@
 from DB     import DB
 from Reddit import Reddit
 from sys import exit
+from urllib2 import HTTPError
 
 db = DB()
 reddit = Reddit()
@@ -62,7 +63,11 @@ def update_post(post):
 while i < len(results):
 	ids = [str(x[0]) for x in results[i:i+posts_per_page]]
 	url = 'http://www.reddit.com/by_id/t3_%s.json' % ',t3_'.join(ids)
-	posts = reddit.get(url)
+	try:
+		posts = reddit.get(url)
+	except HTTPError:
+		posts = []
+
 	for post in posts:
 		post.id = str(post.id)
 		if not post.id in POSTS: post.id = post.id.rjust(6, '0')
