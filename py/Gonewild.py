@@ -212,13 +212,20 @@ class Gonewild(object):
 	
 	def infinite_loop(self):
 		users = self.db.get_users(new=False)
+
+		last_user = self.db.get_config('last_user')
+		last_index = 0 if last_user == None or last_user not in users else users.index(last_user)
+
 		while True:
-			for user in users:
-				newusers = self.db.get_users(new=True) # Check for newly-added users
-				for newuser in newusers:
-					users.append(newuser)       # Add new user to existing list
-					self.poll_user(newuser) # Poll new user for content
-				self.poll_user(user) # Poll user for content
+			newusers = self.db.get_users(new=True) # Check for newly-added users
+			for newuser in newusers:
+				users.append(newuser)       # Add new user to existing list
+				self.poll_user(newuser) # Poll new user for content
+			last_index += 1
+			if last_index >= len(users): last_index = 0
+			user = users[last_index]
+			self.poll_user(user) # Poll user for content
+			self.db.set_config('last_user', user)
 
 if __name__ == '__main__':
 	gw = Gonewild()

@@ -89,8 +89,12 @@ SCHEMA = {
 		'\n\t' +
 		'site     string primary key, \n\t' +
 		'username string, \n\t' +
-		'password string  \n\t'
+		'password string  \n\t',
 
+	'config' :
+		'\n\t' +
+		'key string primary key, \n\t' +
+		'value string',
 }
 
 DB_FILE = path.join(ImageUtils.get_root(), 'database.db')
@@ -552,6 +556,37 @@ class DB:
 		''' % (user)
 		cur.execute(query)
 		self.conn.commit()
+	
+	def get_config(self, key):
+		cur = self.conn.cursor()
+		query = '''
+			select value
+				from config
+				where key = "%s"
+		''' % key
+		try:
+			execur = cur.execute(query)
+			result = execur.fetchone()[0]
+			cur.close()
+		except Exception, e:
+			self.debug('failed to get config key "%s": %s' % (key, str(e)))
+			return None
+		return result
+
+	def set_config(self, key, value):
+		cur = self.conn.cursor()
+		query = '''
+			insert or replace into config (key, value)
+				values ("%s", "%s")
+		''' % (key, value)
+		try:
+			execur = cur.execute(query)
+			result = execur.fetchone()
+			self.conn.commit()
+			cur.close()
+		except Exception, e:
+			self.debug('failed to set config key "%s" to value "%s": %s' % (key, value, str(e)))
+		
 
 if __name__ == '__main__':
 	db = DB()
