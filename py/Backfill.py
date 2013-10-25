@@ -19,7 +19,7 @@ POSTS = {}
 reddit.login(username, password)
 
 cur = db.conn.cursor()
-query = "select * from posts where legacy=1"
+query = "select * from posts where legacy=1 order by id"
 execur = cur.execute(query)
 results = execur.fetchall()
 
