@@ -12,13 +12,13 @@ except ImportError: import sqlite as sqlite3
 SCHEMA = {
 	'newusers' :
 		'\n\t' +
-		'username string unique \n\t',
+		'username text unique \n\t',
 
 	'users' :
 		'\n\t' +
 		'id        integer primary key autoincrement, \n\t' +
-		'username  string unique, \n\t' +
-		'sinceid   string,  \n\t' +
+		'username  text unique, \n\t' +
+		'sinceid   text,  \n\t' +
 		'created   integer, \n\t' + 
 		'updated   integer, \n\t' +
 		'deleted   integer, \n\t' +
@@ -29,37 +29,37 @@ SCHEMA = {
 
 	'posts' :
 		'\n\t' +
-		'id        string primary key, \n\t' +
+		'id        text primary key, \n\t' +
 		'userid    integer, \n\t' +
-		'title     string,  \n\t' +
-		'url       string,  \n\t' +
-		'subreddit string,  \n\t' +
+		'title     text,  \n\t' +
+		'url       text,  \n\t' +
+		'subreddit text,  \n\t' +
 		'over_18   integer, \n\t' +
 		'created   integer, \n\t' +
 		'legacy    integer, \n\t' +
-		'permalink string,  \n\t' +
+		'permalink text,  \n\t' +
 		'foreign key(userid) references users(id)\n\t',
 
 	'comments' :
 		'\n\t' +
-		'id        string primary key, \n\t' +
+		'id        text primary key, \n\t' +
 		'userid    integer, \n\t' +
-		'postid    string,  \n\t' +
-		'subreddit string,  \n\t' +
-		'text      string,  \n\t' +
+		'postid    text,  \n\t' +
+		'subreddit text,  \n\t' +
+		'text      text,  \n\t' +
 		'created   integer, \n\t' +
 		'legacy    integer, \n\t' +
-		'permalink string,  \n\t' +
+		'permalink text,  \n\t' +
 		'foreign key(userid) references users(id)\n\t',
 
 	'albums' : 
 		'\n\t'
 		'id      integer primary key, \n\t' +
-		'path    string unique, \n\t' +
+		'path    text unique, \n\t' +
 		'userid  integer, \n\t' +
-		'url     string,  \n\t' +
-		'post    string,  \n\t' +
-		'comment string,  \n\t' +
+		'url     text,  \n\t' +
+		'post    text,  \n\t' +
+		'comment text,  \n\t' +
 		'views   integer, \n\t' +
 		'rating  integer, \n\t' +
 		'ratings integer, \n\t' +
@@ -68,17 +68,17 @@ SCHEMA = {
 	'images' :
 		'\n\t' +
 		'id      integer primary key, \n\t' +
-		'path    string unique,  \n\t' +
+		'path    text unique,  \n\t' +
 		'userid  integer, \n\t' +
-		'source  string,  \n\t' +
+		'source  text,  \n\t' +
 		'width   integer, \n\t' +
 		'height  integer, \n\t' +
 		'size    integer, \n\t' + 
-		'thumb   string,  \n\t' +
-		'type    string,  \n\t' + # image/video
+		'thumb   text,  \n\t' +
+		'type    text,  \n\t' + # image/video
 		'albumid integer, \n\t' +
-		'post    string,  \n\t' +
-		'comment string,  \n\t' +
+		'post    text,  \n\t' +
+		'comment text,  \n\t' +
 		'views   integer, \n\t' +
 		'rating  integer, \n\t' +
 		'ratings integer, \n\t' +
@@ -87,14 +87,14 @@ SCHEMA = {
 
 	'credentials' :
 		'\n\t' +
-		'site     string primary key, \n\t' +
-		'username string, \n\t' +
-		'password string  \n\t',
+		'site     text primary key, \n\t' +
+		'username text, \n\t' +
+		'password text  \n\t',
 
 	'config' :
 		'\n\t' +
-		'key string primary key, \n\t' +
-		'value string',
+		'key text primary key, \n\t' +
+		'value text',
 }
 
 DB_FILE = path.join(ImageUtils.get_root(), 'database.db')
