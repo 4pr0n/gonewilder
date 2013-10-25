@@ -72,7 +72,50 @@ class Reddit(object):
 		Reddit.debug('logged in')
 
 	@staticmethod
-	def get(user, since=None, max_pages=None):
+	def get(url):
+		results = []
+		Reddit.debug('loading %s' % url)
+		sleep(2)
+		try:
+			r = Reddit.httpy.get(url)
+			json = loads(r)
+		except Exception, e:
+			Reddit.debug('exception: %s' % str(e))
+			raise e
+		children = json['data']['children']
+		#Reddit.debug('get: found %d posts/comments' % len(children))
+		for child in children:
+			result = {}
+			if child['kind'] == 't1':
+				# Comment
+				comment = child['data']
+				result = Comment()
+				result.id        = comment['id']
+				result.author    = comment['author']
+				result.post_id   = comment['link_id'].split('_')[-1]
+				result.body      = comment['body']
+				result.subreddit = comment['subreddit']
+				result.created   = comment['created_utc']
+			elif child['kind'] == 't3':
+				# Post
+				post = child['data']
+				result = Post()
+				result.id        = post['id']
+				result.author    = post['author']
+				result.over_18   = post['over_18']
+				result.title     = post['title']
+				result.subreddit = post['subreddit']
+				result.created   = post['created_utc']
+				if post['is_self'] and 'selftext' in post:
+					result.selftext = post['selftext']
+				else:
+					result.url = post['url']
+			results.append(result)
+		return results
+		
+		
+	@staticmethod
+	def get_user(user, since=None, max_pages=None):
 		""" 
 			Get all comments and posts for a user since 'since'.
 			'since' is either a post id or comment id
@@ -160,7 +203,7 @@ class Reddit(object):
 		return list(set(urls)) # Kill duplicates
 
 if __name__ == '__main__':
-	for child in Reddit.get('hornysailor80', since='ccpj21b'): # ccbzguz
+	for child in Reddit.get_user('hornysailor80', since='ccpj21b'): # ccbzguz
 		if type(child) == Post:
 			if child.selftext != None:
 				print 'POST selftext:', Reddit.get_links_from_text(child.selftext),

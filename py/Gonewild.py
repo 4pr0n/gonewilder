@@ -42,7 +42,7 @@ class Gonewild(object):
 
 	def user_has_gone_wild(self, user):
 		# Look at last 100 submissions
-		children = Reddit.get('%s/submitted' % user, max_pages=1)
+		children = Reddit.get_user('%s/submitted' % user, max_pages=1)
 		for child in children:
 			if type(child) == Post:
 				if child.subreddit == 'gonewild' or \
@@ -71,7 +71,7 @@ class Gonewild(object):
 		# Get posts/comments for user
 		self.debug('poll_user: "%s" since "%s"' % (user, since_id))
 		try:
-			children = Reddit.get(user, since=since_id)
+			children = Reddit.get_user(user, since=since_id)
 		except Exception, e:
 			if '404: Not Found' in str(e):
 				# User is deleted, mark it as such
