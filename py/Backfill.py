@@ -64,7 +64,8 @@ while i < len(results):
 	url = 'http://www.reddit.com/by_id/t3_%s.json' % ',t3_'.join(ids)
 	posts = reddit.get(url)
 	for post in posts:
-		post.id = str(post.id).rjust(6, '0')
+		post.id = str(post.id)
+		if not post.id in POSTS: post.id = post.id.rjust(6, '0')
 		oldpost = POSTS[post.id]
 		oldpost['title']     = post.title
 		oldpost['url']       = post.url
