@@ -285,8 +285,9 @@ class ImageUtils(object):
 					dims = fields[2]
 					if not 'x' in dims: raise Exception('invalid video dimensions')
 					(width, height) = dims.split('x')
+					if ' ' in height: height = height[:height.find(' ')]
 					try:
-						width = int(width)
+						width  = int(width)
 						height = int(height)
 					except:
 						raise Exception('invalid video dimensions: %sx%s' % (width, height))
