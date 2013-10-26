@@ -252,7 +252,7 @@ class DB:
 		results = cur.execute('''
 			select sinceid
 				from users
-				where username = "%s"
+				where username like "%s"
 		''' % user)
 		return results.fetchall()[0][0]
 
@@ -261,7 +261,7 @@ class DB:
 		query = '''
 			update users
 				set sinceid = "%s"
-				where username = "%s"
+				where username like "%s"
 		''' % (since_id, user)
 		cur.execute(query)
 		self.conn.commit()
@@ -378,7 +378,7 @@ class DB:
 		if new:
 			# Delete list of new users, add to new users list
 			for user in [x[0] for x in users]:
-				delq = 'delete from newusers where username = "%s"' % user
+				delq = 'delete from newusers where username like "%s"' % user
 				cur.execute(delq)
 				try: self.add_user(user, new=False)
 				except: pass
@@ -542,7 +542,7 @@ class DB:
 		query = '''
 			update users
 				set updated = %d
-				where username = "%s"
+				where username like "%s"
 		''' % (int(time.time()), user)
 		cur.execute(query)
 		self.conn.commit()
@@ -552,7 +552,7 @@ class DB:
 		query = '''
 			update users
 				set deleted = 1
-				where username = "%s"
+				where username like "%s"
 		''' % (user)
 		cur.execute(query)
 		self.conn.commit()
