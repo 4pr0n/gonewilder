@@ -44,10 +44,10 @@ class Queries(object):
 				value = ':'.join(field.split(':')[1:])
 				if key in Queries.SEARCH_FIELDS:
 					lst = filters.get(key, [])
-					lst.append(value)
+					lst.append('%%%s%%' % value)
 					filters[key] = lst
 			else:
-				texts.append(field)
+				texts.append('%%%s%%' % field)
 		return (texts, filters)
 
 	def search_users(self, texts, filters, start, count):
@@ -60,19 +60,23 @@ class Queries(object):
 				from (select * from users
 					where
 			'''
-			conditions = []
-			if len(texts) > 0:
+			conditions     = []
+			search_values  = []
+			if 'user' in filters and len(filters['user']) > 0:
+				conditions += ['username like ?'] * len(filters['user'])
+				search_values += filters['user']
+			elif len(texts) > 0:
 				conditions += ['username like ?'] * len(texts)
-			if len(filters['user']) > 0:
-				conditions += ['username = ?'] * len(filters['user'])
+				search_values += texts
 			query += ' OR '.join(conditions)
 			query += '''
 					limit %d
 					offset %d
 				) users
 			''' % (count, start)
+			print query, search_values
 			cur = self.db.conn.cursor()
-			execur = cur.execute(query, texts + filters['user'])
+			execur = cur.execute(query, search_values)
 			results = execur.fetchall()
 			for (username, created, updated, 
 					 deleted, views, rating, ratings) in results:
@@ -115,10 +119,10 @@ class Queries(object):
 			conditions_or.extend(['username like ?'] * len(texts))
 			search_values.extend(texts)
 		if 'reddit' in filters and len(filters['reddit']) > 0:
-			conditions_and.extend(['subreddit = ?'] * len(filters['reddit']))
+			conditions_and.extend(['subreddit like ?'] * len(filters['reddit']))
 			search_values.extend(filters['reddit'])
 		else:
-			conditions_or.extend(['reddit like ?'] * len(texts))
+			conditions_or.extend(['subreddit like ?'] * len(texts))
 			search_values.extend(texts)
 
 		if len(conditions_or) > 0:
@@ -216,7 +220,6 @@ class Queries(object):
 			'latency' : '%dms' % int(db_latency * 1000)
 		}
 		return response
-		
 
 	def get_user(self, user, sorting, start, count):
 		pass
@@ -228,4 +231,5 @@ if __name__ == '__main__':
 	#print q.get_search_fields('testing "one two three" reddit:asdf user:fdsa')
 	#print q.get_search_fields('testing "one two three" "reddit:asdf 789" reddit:890 user:fdsa')
 	#print q.get_search_fields('testing url:http://test.com/asdf more')
-	print q.search('reddit:gonewild user:thatnakedgirl')
+	#print q.search('reddit:gonewild user:thatnakedgirl')
+	print q.search('sexy')
