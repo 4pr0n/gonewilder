@@ -2,7 +2,7 @@
 
 from json  import loads
 from Httpy import Httpy
-from time  import sleep, strftime, gmtime
+from time  import sleep, strftime, gmtime, time as timetime
 from sys   import stderr
 
 class Child(object):
@@ -36,10 +36,18 @@ class Comment(Child,object):
 		else:
 			return 'http://reddit.com/comments/%s/_/%s' % (self.post_id, self.id)
 
+class User(object):
+	def __init__(self):
+		self.name    = ''
+		self.created = 0
+		self.comm_karma = 0
+		self.link_karma = 0
+
 ''' Retrieve posts/comments from reddit '''
 class Reddit(object):
 	logger = stderr
 	httpy = Httpy(user_agent='user ripper by /u/4_pr0n, or contact admin@rarchives.com')
+	last_request = 0.0
 
 	@staticmethod
 	def debug(text):
@@ -48,6 +56,17 @@ class Reddit(object):
 		Reddit.logger.write('%s\n' % text)
 		if Reddit.logger != stderr:
 			stderr.write('%s\n' % text)
+	
+	'''
+		Prevent API rate limiting.
+		Wait until current time - last request >= 2 seconds
+	'''
+	@staticmethod
+	def wait():
+		now = float(timetime())
+		if now - Reddit.last_request < 2:
+			sleep(2 - (now - Reddit.last_request))
+		Reddit.last_request = float(timetime())
 
 	@staticmethod
 	def login(user, password):
@@ -75,7 +94,7 @@ class Reddit(object):
 	def get(url):
 		results = []
 		Reddit.debug('loading %s' % url)
-		sleep(2)
+		Reddit.wait()
 		try:
 			r = Reddit.httpy.get(url)
 			json = loads(r)
@@ -123,7 +142,7 @@ class Reddit(object):
 		results = []
 		url = 'http://www.reddit.com/user/%s.json' % user
 		Reddit.debug('loading %s' % url)
-		sleep(2)
+		Reddit.wait()
 		try:
 			r = Reddit.httpy.get(url)
 		except Exception, e:
@@ -182,7 +201,7 @@ class Reddit(object):
 			if max_pages != None and max_pages >= page: break
 			next_url = '%s?after=%s' % (url, after)
 			Reddit.debug('loading %s' % next_url)
-			sleep(2)
+			Reddit.wait()
 			r = Reddit.httpy.get(next_url)
 			page += 1
 		return results
@@ -202,7 +221,30 @@ class Reddit(object):
 			i = j
 		return list(set(urls)) # Kill duplicates
 
+	@staticmethod
+	def get_user_info(user):
+		url = 'http://www.reddit.com/user/%s/about.json' % user
+		try:
+			Reddit.wait()
+			r = Reddit.httpy.get(url)
+			json = loads(r)
+		except Exception, e:
+			Reddit.debug('exception: %s' % str(e))
+			raise e
+		if not 'data' in json:
+			Reddit.debug('data not found at %s, got: %s' % (url, r))
+			raise Exception('data not found at %s' % url)
+		data = json['data']
+		user_info = User()
+		user_info.name = data['name']
+		user_info.created = int(data['created_utc'])
+		user_info.comm_karma = data['comment_karma']
+		user_info.link_karma = data['link_karma']
+		return user_info
+
+
 if __name__ == '__main__':
+	'''
 	for child in Reddit.get_user('hornysailor80', since='ccpj21b'): # ccbzguz
 		if type(child) == Post:
 			if child.selftext != None:
@@ -212,4 +254,10 @@ if __name__ == '__main__':
 		elif type(child) == Comment:
 			print 'COMMENT', child.body, #Reddit.get_links_from_text(child.body)
 		print 'created: %d' % child.created
+	'''
+	ui = Reddit.get_user_info('hornysailor80')
+	print ui.name
+	print ui.created
+	print ui.comm_karma
+	print ui.link_karma
 
