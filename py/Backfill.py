@@ -23,8 +23,10 @@ def backfill_users():
 	cur = db.conn.cursor()
 	execur = cur.execute(q_users)
 	ids_and_users = execur.fetchall() # Get list of users + ids
+	index = 0
 	for (userid, username) in ids_and_users:
-		print 'updating %s...' % username,
+		index += 1
+		print '(%d/%d) updating %s...' % (index, len(ids_and_users), username),
 		stdout.flush()
 		try:
 			ui = Reddit.get_user_info(username)
