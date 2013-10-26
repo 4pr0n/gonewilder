@@ -38,7 +38,7 @@ for (postid, userid, title, url, subreddit, over_18, created, legacy, permalink)
 			'permalink' : permalink
 		}
 
-posts_per_page = 100
+posts_per_page = 99
 i = 0
 
 def update_post(post):
@@ -62,6 +62,7 @@ def update_post(post):
 
 while i < len(results):
 	ids = [str(x[0]) for x in results[i:i+posts_per_page]]
+	ids.append('t3_1234')
 	url = 'http://www.reddit.com/by_id/t3_%s.json' % ',t3_'.join(ids)
 	try:
 		posts = reddit.get(url)
@@ -71,6 +72,7 @@ while i < len(results):
 	for post in posts:
 		post.id = str(post.id)
 		if not post.id in POSTS: post.id = post.id.rjust(6, '0')
+		if not post.id in POSTS: continue
 		oldpost = POSTS[post.id]
 		oldpost['title']     = post.title
 		oldpost['url']       = post.url
@@ -82,7 +84,7 @@ while i < len(results):
 		oldpost['id']        = post.id
 		Reddit.debug('updating post %s by %s' % (post.id, post.author))
 		update_post(oldpost)
-	Reddit.debug('%d/%d - %d remaining' % (i, len(results), len(results)-i))
 	db.conn.commit()
 	i += posts_per_page
+	Reddit.debug('%d/%d - %d remaining' % (i, len(results), len(results)-i))
 
