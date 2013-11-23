@@ -3,10 +3,11 @@
 from DB import DB
 from time import time as timetime
 
+# Request user
+# Get: Posts and comments
+# Each post/comment: list of images.
 class Queries(object):
 	SEARCH_FIELDS = ['user', 'reddit', 'title', 'comment', 'from', 'to', 'album', 'url']
-	def __init__(self):
-		self.db = DB()
 
 	'''
 		Parses search fields from text.
@@ -23,11 +24,11 @@ class Queries(object):
 		'reddit:nsfw user:asdf  => ( [], { 'reddit': ['nsfw'], 'user': ['asdf'] } )
 		'title:this title:first => ( [], { 'title': ['this', 'first'] } )
 	'''
-	def get_search_fields(self, text):
+	@staticmethod
+	def get_search_fields(text):
 		fields = text.split(' ')
-		filters = {}
-		texts = []
 		i = 0
+		# Combine quoted fields
 		while i < len(fields):
 			if fields[i].startswith('"'):
 				fields[i] = fields[i][1:]
@@ -38,6 +39,9 @@ class Queries(object):
 						fields[i] = fields[i][:-1]
 						break
 			i += 1
+		# Split into 'texts' and 'filters'
+		filters = {}
+		texts = []
 		for field in fields:
 			if ':' in field:
 				key = field.split(':')[0]
@@ -50,7 +54,8 @@ class Queries(object):
 				texts.append('%%%s%%' % field)
 		return (texts, filters)
 
-	def search_users(self, texts, filters, start, count):
+	@staticmethod
+	def search_users(texts, filters, start, count):
 		results_users = []
 		if len(texts) > 0 or len(filters['user']) > 0:
 			query = '''
@@ -74,8 +79,8 @@ class Queries(object):
 					offset %d
 				) users
 			''' % (count, start)
-			print query, search_values
-			cur = self.db.conn.cursor()
+			db = DB()
+			cur = db.conn.cursor()
 			execur = cur.execute(query, search_values)
 			results = execur.fetchall()
 			for (username, created, updated, 
@@ -91,7 +96,8 @@ class Queries(object):
 				})
 		return results_users
 	
-	def search_posts(self, texts, filters, start, count):
+	@staticmethod
+	def search_posts(texts, filters, start, count):
 		results_posts = []
 		query = '''
 			select
@@ -131,12 +137,14 @@ class Queries(object):
 			query += ' AND '
 		if len(conditions_and) > 0:
 			query += '(%s)' % ' AND '.join(conditions_and)
+
 		query += '''
 				limit %d
 				offset %d
 		''' % (count, start)
 
-		cur = self.db.conn.cursor()
+		db = DB()
+		cur = db.conn.cursor()
 		execur = cur.execute(query, search_values)
 		results = execur.fetchall()
 		for (postid, title, url, reddit, created, permalink, user) in results:
@@ -151,9 +159,8 @@ class Queries(object):
 			})
 		return results_posts
 		
-	def search(self, text, start=0, count=20):
-		started = float(timetime())
-
+	@staticmethod
+	def search(text, start=0, count=20):
 		(texts, filters) = self.get_search_fields(text)
 
 		# USERS
@@ -171,15 +178,19 @@ class Queries(object):
 			'posts' : results_posts
 		}
 
-	def get_users(self, sortby='username', orderby='asc', start=0, count=20):
+	'''
+		Retrieves from full list of users
+		Returns user info along with # of images, albums, posts, and comments.
+	'''
+	@staticmethod
+	def get_users(sortby='username', orderby='asc', start=0, count=20):
 		if sortby not in ['username', 'sinceid', 'created', 'updated', 
 		               'deleted', 'blacklist', 'views', 'rating', 'ratings']:
 			sortby = 'username'
 		if orderby not in ['asc', 'desc']:
 			orderby = 'desc'
-		started = float(timetime())
 		query = '''
-		select
+			select
 				users.username, users.created, users.updated, 
 				users.deleted, users.views, users.rating, users.ratings,
 				(select count(*) from posts    where posts.userid    = users.id) as post_count,
@@ -193,10 +204,10 @@ class Queries(object):
 				offset %d
 				) users
 		''' % (sortby, orderby, count, start)
-		cur = self.db.conn.cursor()
+		db = DB()
+		cur = db.conn.cursor()
 		execur = cur.execute(query)
 		results = execur.fetchall()
-		db_latency = float(timetime()) - started
 		users = []
 		for (username, created, updated, 
 		     deleted, views, rating, ratings, 
@@ -216,13 +227,144 @@ class Queries(object):
 			})
 		cur.close()
 		response = {
-			'users' : users,
-			'latency' : '%dms' % int(db_latency * 1000)
+			'users' : users
 		}
 		return response
 
-	def get_user(self, user, sorting, start, count):
-		pass
+	@staticmethod
+	def get_user_posts(user, sortby='created', orderby='asc', start=0, count=20):
+		# XXX Select from images, group by post,album
+		# ... but images -> post is many->one (even when not an album)
+
+		# 1) Images/Albums' "postid" is out of sync with Posts table. (611 orphaned images, 913 albums)
+		# 2) Posts need self-text.
+		# 3) We want vote counts on posts/comments
+		# 4) Some albums/images should be ignored (SFW posts!)
+		
+		# Solution: 
+		# New table schema.
+		#  -> up/down votes in posts/comments
+		#  -> seltext in posts
+		# Backfill existing images:
+		#  -> ensure postid is properly retrieved and stored (leading 0s?)
+		#  -> do *not* duplicate images! use oldest image first (sort by name should get oldest version first)
+		# Backfill existing posts via reddit by_id:
+		#  -> if post is 404'd on reddit, remove image (?) likely a banned sub / takedown
+		#  -> backfill comments as well ... (reddit.com/comments/postid/_/commentid)
+		#     expensive, but worth it
+		#  -> if comment is 404'd... remove image and entry in db?
+		if sortby not in ['id', 'created', 'subreddit', 'ups']:
+			sortby = 'created'
+		if orderby not in ['asc', 'desc']:
+			orderby = 'desc'
+
+		query = '''
+			select
+				id, title, url, selftext, subreddit, created, permalink, ups, downs
+			from posts
+			where 
+				posts.userid in
+					(select id from users where username = ?)
+			order by %s %s
+			limit  %d
+			offset %d
+		''' % (sortby, orderby, count, start)
+		db = DB()
+		cur = db.conn.cursor()
+		execur = cur.execute(query, [user])
+		results = execur.fetchall()
+		posts = []
+		for (postid, title, url, selftext, subreddit, created, permalink, ups, downs) in results:
+			images = []
+			query = '''
+				select
+					path, width, height, size, thumb, type
+				from images
+				where
+					images.post = ?
+			'''
+			execur = cur.execute(query, [postid])
+			image_results = execur.fetchall()
+			for (path, width, height, size, thumb, imagetype) in image_results:
+				images.append({
+					'path'   : path,
+					'width'  : width,
+					'height' : height,
+					'size'   : size,
+					'thumb'  : thumb,
+					'type'   : imagetype
+				})
+			posts.append({
+				'id'        : postid,
+				'title'     : title,
+				'url'       : url,
+				'selftext'  : selftext,
+				'subreddit' : subreddit,
+				'created'   : created,
+				'permalink' : permalink,
+				'ups'       : ups,
+				'downs'     : downs,
+				'images'    : images
+			})
+		cur.close()
+		return posts
+
+	@staticmethod
+	def get_user_comments(user, sortby='created', orderby='asc', start=0, count=20):
+		if sortby not in ['id', 'postid', 'created', 'subreddit', 'ups']:
+			sortby = 'created'
+		if orderby not in ['asc', 'desc']:
+			orderby = 'desc'
+
+		query = '''
+			select
+				id, postid, text, subreddit, created, permalink, ups, downs
+			from comments
+			where 
+				comments.userid in
+					(select id from users where username = ?)
+			order by %s %s
+			limit  %d
+			offset %d
+		''' % (sortby, orderby, count, start)
+		db = DB()
+		cur = db.conn.cursor()
+		execur = cur.execute(query, [user])
+		results = execur.fetchall()
+		comments = []
+		for (commentid, postid, text, subreddit, created, permalink, ups, downs) in results:
+			images = []
+			query = '''
+				select
+					path, width, height, size, thumb, type
+				from images
+				where
+					images.post = ?
+			'''
+			execur = cur.execute(query, [postid])
+			image_results = execur.fetchall()
+			for (path, width, height, size, thumb, imagetype) in image_results:
+				images.append({
+					'path'   : path,
+					'width'  : width,
+					'height' : height,
+					'size'   : size,
+					'thumb'  : thumb,
+					'type'   : imagetype
+				})
+			comments.append({
+				'id'        : commentid,
+				'postid'    : postid,
+				'text'      : text,
+				'subreddit' : subreddit,
+				'created'   : created,
+				'permalink' : permalink,
+				'ups'       : ups,
+				'downs'     : downs,
+				'images'    : images
+			})
+		cur.close()
+		return comments
 
 if __name__ == '__main__':
 	q = Queries()
@@ -231,5 +373,7 @@ if __name__ == '__main__':
 	#print q.get_search_fields('testing "one two three" reddit:asdf user:fdsa')
 	#print q.get_search_fields('testing "one two three" "reddit:asdf 789" reddit:890 user:fdsa')
 	#print q.get_search_fields('testing url:http://test.com/asdf more')
-	#print q.search('reddit:gonewild user:thatnakedgirl')
-	print q.search('sexy')
+	#print q.search('reddit:gonewild user:thatnakedgirl album:yes')
+	#print q.search('sexy')
+	#print q.get_user_posts('1_more_time')
+	print q.get_user_comments('1_more_time')
