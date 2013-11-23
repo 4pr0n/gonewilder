@@ -53,7 +53,7 @@ def backfill_posts():
 
 	cur = db.conn.cursor()
 	query = '''
-		select * 
+		select id, userid, title, selftext, url, subreddit, over_18, created, legacy, permalink, ups, downs
 			from posts
 			where legacy = 1
 			order by id
@@ -62,17 +62,20 @@ def backfill_posts():
 	results = execur.fetchall()
 
 	# Store existing values in dict
-	for (postid, userid, title, url, subreddit, over_18, created, legacy, permalink) in results:
+	for (postid, userid, title, selftext, url, subreddit, over_18, created, legacy, permalink, ups, downs) in results:
 		postid = str(postid)
 		POSTS[postid] = {
 				'userid'    : userid,
 				'title'     : title,
 				'url'       : url,
+				'selftext'  : selftext,
 				'subreddit' : subreddit,
 				'over_18'   : over_18,
 				'created'   : created,
 				'legacy'    : legacy,
-				'permalink' : permalink
+				'permalink' : permalink,
+				'ups'       : ups,
+				'downs'     : downs
 			}
 
 	posts_per_page = 99
@@ -93,12 +96,15 @@ def backfill_posts():
 			oldpost = POSTS[post.id]
 			oldpost['title']     = post.title
 			oldpost['url']       = post.url
+			oldpost['selftext']  = post.selftext
 			oldpost['subreddit'] = post.subreddit
 			oldpost['created']   = int(post.created)
 			oldpost['permalink'] = post.permalink()
 			oldpost['over_18']   = int(post.over_18)
 			oldpost['legacy']    = 0
 			oldpost['id']        = post.id
+			oldpost['ups']       = post.ups
+			oldpost['downs']     = post.downs
 			Reddit.debug('updating post %s by %s' % (post.id, post.author))
 			update_post(oldpost)
 		db.conn.commit()
@@ -107,22 +113,84 @@ def backfill_posts():
 
 def update_post(post):
 	query = '''
-	update posts
-		set
-			title = ?,
-			url = ?,
-			subreddit = ?,
-			over_18 = ?,
-			created = ?,
-			permalink = ?,
-			legacy = 0
-		where
-			id = ?
+		update posts
+			set
+				title     = ?,
+				url       = ?,
+				selftext  = ?,
+				subreddit = ?,
+				over_18   = ?,
+				created   = ?,
+				permalink = ?,
+				legacy    = 0,
+				ups       = ?,
+				downs     = ?
+			where
+				id = ?
 	'''
 	cur = db.conn.cursor()
-	cur.execute(query, (post['title'], post['url'], post['subreddit'], post['over_18'],
-	                    post['created'], post['permalink'], post['id']) )
+	cur.execute(query, (post['title'], post['url'], post['selftext'], post['subreddit'], 
+	                    post['over_18'], post['created'], post['permalink'],
+	                    post['ups'], post['downs'], post['id']) )
+	cur.close()
+
+
+def backfill_comments():
+	(username, password) = db.get_credentials('reddit')
+	reddit.login(username, password)
+
+	cur = db.conn.cursor()
+	query = '''
+		select
+				id,
+				userid,
+				postid,
+				subreddit,
+				text,
+				created,
+				legacy,
+				permalink,
+				ups,
+				downs
+		from comments
+		where legacy = 1
+		order by id
+	'''
+	execur = cur.execute(query)
+	results = execur.fetchall()
+
+	for (commentid,
+	     userid,
+	     postid,
+	     subreddit,
+	     text,
+	     created,
+	     legacy,
+	     permalink,
+	     ups,
+	     downs) in results:
+		# Get comment from reddit
+		post = Reddit.get('http://www.reddit.com/comments/%s/_/%s' % (postid, commentid))
+		if len(post.comments) > 0:
+			comment = post.comments[0]
+			# Update db
+			query = '''
+				update comments
+					set
+						postid    = ?,
+						subreddit = ?,
+						text      = ?,
+						created   = ?,
+						permalink = ?,
+						legacy    = 0,
+						ups       = ?,
+						downs     = ?
+					where
+						id = ?
+			'''
+			cur.execute(query, (postid, subreddit, text, created, permalink, legacy, ups, downs, commentid) )
 	cur.close()
 
 if __name__ == '__main__':
-	backfill_users()
+	#backfill_users()
+	backfill_posts()
