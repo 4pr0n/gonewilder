@@ -18,7 +18,7 @@ SCHEMA = {
 		'\n\t' +
 		'id        integer primary key autoincrement, \n\t' +
 		'username  text unique, \n\t' +
-		'sinceid   text,  \n\t' +
+		'sinceid   text,    \n\t' +
 		'created   integer, \n\t' + 
 		'updated   integer, \n\t' +
 		'deleted   integer, \n\t' +
@@ -31,38 +31,41 @@ SCHEMA = {
 		'\n\t' +
 		'id        text primary key, \n\t' +
 		'userid    integer, \n\t' +
-		'title     text,  \n\t' +
-		'url       text,  \n\t' +
-		'subreddit text,  \n\t' +
+		'title     text,    \n\t' +
+		'url       text,    \n\t' +
+		'selftext  text,    \n\t' +
+		'subreddit text,    \n\t' +
 		'over_18   integer, \n\t' +
 		'created   integer, \n\t' +
 		'legacy    integer, \n\t' +
-		'permalink text,  \n\t' +
+		'permalink text,    \n\t' +
+		'ups       integer, \n\t' +
+		'downs     integer, \n\t' +
 		'foreign key(userid) references users(id)\n\t',
 
 	'comments' :
 		'\n\t' +
 		'id        text primary key, \n\t' +
 		'userid    integer, \n\t' +
-		'postid    text,  \n\t' +
-		'subreddit text,  \n\t' +
-		'text      text,  \n\t' +
+		'postid    text,    \n\t' +
+		'subreddit text,    \n\t' +
+		'text      text,    \n\t' +
 		'created   integer, \n\t' +
 		'legacy    integer, \n\t' +
-		'permalink text,  \n\t' +
+		'permalink text,    \n\t' +
+		'ups       integer, \n\t' +
+		'downs     integer, \n\t' +
 		'foreign key(userid) references users(id)\n\t',
 
 	'albums' : 
 		'\n\t'
 		'id      integer primary key, \n\t' +
 		'path    text unique, \n\t' +
-		'userid  integer, \n\t' +
-		'url     text,  \n\t' +
-		'post    text,  \n\t' +
-		'comment text,  \n\t' +
+		'userid  integer,     \n\t' +
+		'url     text,    \n\t' +
+		'post    text,    \n\t' +
+		'comment text,    \n\t' +
 		'views   integer, \n\t' +
-		'rating  integer, \n\t' +
-		'ratings integer, \n\t' +
 		'foreign key(userid) references users(id)\n\t',
 
 	'images' :
@@ -70,18 +73,16 @@ SCHEMA = {
 		'id      integer primary key, \n\t' +
 		'path    text unique,  \n\t' +
 		'userid  integer, \n\t' +
-		'source  text,  \n\t' +
+		'source  text,    \n\t' +
 		'width   integer, \n\t' +
 		'height  integer, \n\t' +
 		'size    integer, \n\t' + 
-		'thumb   text,  \n\t' +
-		'type    text,  \n\t' + # image/video
+		'thumb   text,    \n\t' +
+		'type    text,    \n\t' + # image/video
 		'albumid integer, \n\t' +
-		'post    text,  \n\t' +
-		'comment text,  \n\t' +
+		'post    text,    \n\t' +
+		'comment text,    \n\t' +
 		'views   integer, \n\t' +
-		'rating  integer, \n\t' +
-		'ratings integer, \n\t' +
 		'foreign key(userid) references users(id), \n\t' +
 		'foreign key(albumid) references albums(id)\n\t',
 
@@ -94,7 +95,7 @@ SCHEMA = {
 	'config' :
 		'\n\t' +
 		'key text primary key, \n\t' +
-		'value text',
+		'value text  \n\t',
 }
 
 DB_FILE = path.join(ImageUtils.get_root(), 'database.db')
@@ -272,12 +273,15 @@ class DB:
 				post.id,         # reddit post id
 				userid,          # id of user in 'users' table
 				post.title,      # title of reddit post
+				post.selftext,   # selftext
 				post.url,        # reddit post url
 				post.subreddit,  # subreddit
 				post.over_18,    # NSFW
 				post.created,    # UTC timestamp
 				legacy,          # If post was generated (legacy) or retrieved in-full from reddit
-				post.permalink() # link to post on reddit
+				post.permalink(),# link to post on reddit,
+				post.ups,        # upvotes
+				post.downs       # downvotes
 			) ]
 		q = 'insert into posts values (%s)' % ','.join(['?'] * len(values[0]))
 		cur = self.conn.cursor()
@@ -298,7 +302,9 @@ class DB:
 				comment.body,       # body of comment
 				comment.created,    # utc timestamp
 				legacy,             # if comment was 'generated' (legacy) or retrieved from reddit
-				comment.permalink() # link to comment
+				comment.permalink(),# link to comment
+				comment.ups,        # upvotes
+				comment.downs       # downvotes
 			) ]
 		q = 'insert into comments values (%s)' % ','.join(['?'] * len(values[0]))
 		cur = self.conn.cursor()
@@ -318,7 +324,7 @@ class DB:
 				url,       # url to album
 				postid,    # reddit post id
 				commentid, # reddit comment id
-				0, 0, 0
+				0          # views
 			) ]
 		q = 'insert into albums values (%s)' % ','.join(['?'] * len(values[0]))
 		cur = self.conn.cursor()
@@ -350,7 +356,7 @@ class DB:
 				albumid,   # album in which the image is contained
 				postid,    # reddit post
 				commentid, # reddit comment
-				0, 0, 0    # views, rating, ratings
+				0          # views
 			) ]
 		q = 'insert into images values (%s)' % ','.join(['?'] * len(values[0]))
 		cur = self.conn.cursor()
@@ -412,6 +418,8 @@ class DB:
 			# Can't properly handle tumblr links
 			self.debug('cannot properly handle tumblr links')
 			return
+		if subdir == '' and album_id == -1:
+			self.debug('adding image: %s' % oldpath)
 		try:
 			dims = ImageUtils.get_dimensions(oldpath)
 		except:
@@ -463,7 +471,7 @@ class DB:
 			try:
 				self.add_post(p, legacy=1)
 			except Exception, e:
-				#self.debug('add_existing_image: %s' % str(e))
+				self.debug('add_existing_image: create post failed: %s' % str(e))
 				pass
 
 			# Add comment
@@ -477,7 +485,7 @@ class DB:
 				try:
 					self.add_comment(c, legacy=1)
 				except Exception, e:
-					#self.debug('add_existing_image: %s' % str(e))
+					self.debug('add_existing_image: create comment failed: %s' % str(e))
 					pass
 
 	def add_existing_album(self, user, oldalbum, oldpath):
@@ -491,7 +499,7 @@ class DB:
 		try:
 			album_id = self.add_album(newalbum, user, url, post, comment)
 		except Exception, e:
-			self.debug('add_existing_album: error adding album: %s' % str(e))
+			self.debug('add_existing_album: failed: %s' % str(e))
 			return
 
 		for image in listdir(oldpath):
