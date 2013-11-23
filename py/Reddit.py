@@ -6,19 +6,46 @@ from time  import sleep, strftime, gmtime, time as timetime
 from sys   import stderr
 
 class Child(object):
-	def __init__(self):
+	def __init__(self, json=None):
 		self.id        = ''
 		self.subreddit = ''
 		self.created   = 0
 		self.author    = ''
+		self.ups       = 0
+		self.downs     = 0
+		if json != None:
+			self.from_json(json)
+	def from_json(self, json):
+		self.id        = json['id']
+		self.subreddit = json['subreddit']
+		self.created   = json['created']
+		self.author    = json['author']
+		self.ups       = json['ups']
+		self.downs     = json['downs']
+		self.comments = []
+		if 'replies' in json and type(json['replies']) == dict:
+			for child in json['replies']['data']['children']:
+				self.comments.append(Comment(child['data']))
+	def __str__(self):
+		return 'Reddit.%s(%s)' % (type(self).__name__, str(self.__dict__))
+	def __repr__(self):
+		return self.__str__()
 
 class Post(Child,object):
-	def __init__(self):
-		super(Post,self).__init__()
+	def __init__(self, json=None):
+		super(Post, self).__init__(json=json)
 		self.over_18  = False
 		self.url      = ''
-		self.selftext = ''
+		self.selftext = None
 		self.title    = ''
+		if json != None:
+			self.from_json(json)
+	def from_json(self, json):
+		super(Post,self).from_json(json)
+		self.url       = json['url']
+		self.selftext  = json['selftext'] if json['is_self'] else None
+		self.title     = json['title']
+		
 	def permalink(self):
 		if self.subreddit != '':
 			return 'http://reddit.com/r/%s/comments/%s' % (self.subreddit, self.id)
@@ -26,10 +53,16 @@ class Post(Child,object):
 			return 'http://reddit.com/comments/%s' % self.id
 
 class Comment(Child,object):
-	def __init__(self):
-		super(Comment,self).__init__()
-		self.body    = ''
-		self.post_id = ''
+	def __init__(self, json=None):
+		super(Comment, self).__init__(json=json)
+		self.body     = ''
+		self.post_id  = ''
+		if json != None:
+			self.from_json(json)
+	def from_json(self, json):
+		super(Comment,self).from_json(json)
+		self.body    = json['body']
+		self.post_id = json['link_id']
 	def permalink(self):
 		if self.subreddit != '':
 			return 'http://reddit.com/r/%s/comments/%s/_/%s' % (self.subreddit, self.post_id, self.id)
@@ -57,6 +90,35 @@ class Reddit(object):
 		if Reddit.logger != stderr:
 			stderr.write('%s\n' % text)
 	
+	'''
+		Parses reddit response.
+		Returns either:
+			Post - if link is to a post
+			     - Comments will be contained within Post.comments
+			List of objects - if link is to a list
+	'''
+	@staticmethod
+	def parse_json(json):
+		if type(json) == list:
+			# First item is post
+			post = Post(json[0]['data']['children'][0]['data'])
+			# Other items are comment replies to post
+			post.comments = []
+			for child in json[1:]:
+				post.comments.extend(Reddit.parse_json(child))
+			return post
+		elif type(json) == dict:
+			result = []
+			for item in json['data']['children']:
+				if item['kind'] == 't3':
+					# Post
+					result.append(Post(item['data']))
+				elif item['kind'] == 't1':
+					# Comment
+					result.append(Comment(item['data']))
+			return result
+		raise Exception('unable to parse:\n%s' % str(json))
+
 	'''
 		Prevent API rate limiting.
 		Wait until current time - last request >= 2 seconds
@@ -101,36 +163,7 @@ class Reddit(object):
 		except Exception, e:
 			Reddit.debug('exception: %s' % str(e))
 			raise e
-		children = json['data']['children']
-		#Reddit.debug('get: found %d posts/comments' % len(children))
-		for child in children:
-			result = {}
-			if child['kind'] == 't1':
-				# Comment
-				comment = child['data']
-				result = Comment()
-				result.id        = comment['id']
-				result.author    = comment['author']
-				result.post_id   = comment['link_id'].split('_')[-1]
-				result.body      = comment['body']
-				result.subreddit = comment['subreddit']
-				result.created   = comment['created_utc']
-			elif child['kind'] == 't3':
-				# Post
-				post = child['data']
-				result = Post()
-				result.id        = post['id']
-				result.author    = post['author']
-				result.over_18   = post['over_18']
-				result.title     = post['title']
-				result.subreddit = post['subreddit']
-				result.created   = post['created_utc']
-				if post['is_self'] and 'selftext' in post:
-					result.selftext = post['selftext']
-				else:
-					result.url = post['url']
-			results.append(result)
-		return results
+		return Reddit.parse_json(json)
 		
 		
 	@staticmethod
@@ -160,44 +193,14 @@ class Reddit(object):
 				return results
 			if 'error' in json and json['error'] == 404:
 				raise Exception('account %s is deleted (404)' % user)
-			if not 'data' in json or not 'children' in json['data']:
-				return []
-			children = json['data']['children']
-			#Reddit.debug('get: found %d posts/comments' % len(children))
-			for child in children:
-				if since != None and child['data']['id'] == since:
+			for item in Reddit.parse_json(json):
+				if item.id == since:
 					return results
-				result = {}
-				if child['kind'] == 't1':
-					# Comment
-					comment = child['data']
-					result = Comment()
-					result.id        = comment['id']
-					result.author    = comment['author']
-					result.post_id   = comment['link_id'].split('_')[-1]
-					result.body      = comment['body']
-					result.subreddit = comment['subreddit']
-					result.created   = comment['created_utc']
-				elif child['kind'] == 't3':
-					# Post
-					post = child['data']
-					result = Post()
-					result.id        = post['id']
-					result.author    = post['author']
-					result.over_18   = post['over_18']
-					result.title     = post['title']
-					result.subreddit = post['subreddit']
-					result.created   = post['created_utc']
-					if post['is_self'] and 'selftext' in post:
-						result.selftext = post['selftext']
-					else:
-						result.url = post['url']
-				results.append(result)
-			if len(children) == 0 or not 'after' in json['data']: break
-			after = json['data']['after']
-			if after == None:
+				results.append(item)
+			if not 'after' in json['data'] or json['data']['after'] == None:
 				Reddit.debug('get: hit end of posts/comments')
 				break
+			after = json['data']['after']
 			if max_pages != None and max_pages >= page: break
 			next_url = '%s?after=%s' % (url, after)
 			Reddit.debug('loading %s' % next_url)
@@ -242,15 +245,25 @@ class Reddit(object):
 		user_info.link_karma = data['link_karma']
 		return user_info
 
+	''' Recursively print comments '''
+	@staticmethod
+	def print_comments(comments, depth=''):
+		for i in xrange(0, len(comments)):
+			comment = comments[i]
+			print depth + '  \\_ "%s" -/u/%s' % (comment.body.replace('\n', ' '), comment.author)
+			if len(comment.comments) > 0:
+				more = '   '
+				if i < len(comments) - 1:
+					more = ' | '
+				Reddit.print_comments(comment.comments, depth=depth+more)
 
 if __name__ == '__main__':
-	'''
-	for child in Reddit.get_user('hornysailor80', since='ccpj21b'): # ccbzguz
+	for child in Reddit.get_user('hornysailor80', since='1omszx'): #'ccpj21b'): # ccbzguz
 		if type(child) == Post:
 			if child.selftext != None:
-				print 'POST selftext:', Reddit.get_links_from_text(child.selftext),
+				print 'POST selftext:', Reddit.get_links_from_text(child.selftext), child.permalink(),
 			else:
-				print 'POST url:', child.url,
+				print 'POST url:', child.url, child.permalink()
 		elif type(child) == Comment:
 			print 'COMMENT', child.body, #Reddit.get_links_from_text(child.body)
 		print 'created: %d' % child.created
@@ -260,4 +273,20 @@ if __name__ == '__main__':
 	print ui.created
 	print ui.comm_karma
 	print ui.link_karma
+	'''
+	'''
+	#r = Reddit.get('http://www.reddit.com/r/boltedontits/comments/1r9f6a.json')
+	#r = Reddit.get('http://www.reddit.com/r/boltedontits/comments/.json')
+	r = Reddit.get('http://www.reddit.com/user/4_pr0n.json')
+	if type(r) == Post:
+		print '"%s" by /u/%s' % (r.title, r.author)
+		Reddit.print_comments(r.comments)
+	elif type(r) == list:
+		for item in r:
+			if type(item) == Post:
+				print 'POST:    "%s" by /u/%s' % (item.title, item.author),
+			elif type(item) == Comment:
+				print 'COMMENT: /u/%s: "%s"' % (item.author, item.body.replace('\n', ' ')),
+			print '(+%d/-%d)' % (item.ups, item.downs)
+	'''
 
