@@ -1,0 +1,143 @@
+body {
+	background-color: #404;
+	color: #ece;
+	font-family: Consolas, Verdana, monospace;
+	padding: 0px;
+	margin:  0px;
+	margin-bottom: 20px;
+	height: auto;
+	background: linear-gradient(top, #404, #101);
+}
+
+a {
+	color: #fcf;
+	text-decoration: none;
+}
+a:hover {
+	color #fef;
+	text-decoration: underline;
+}
+
+div.header {
+	width: auto;
+	font-weight: bold;
+	overflow-x: scroll;
+	overflow-y: hidden;
+}
+
+ul.menu {
+	white-space: nowrap;
+	padding: 0px;
+	margin: 0px;
+	font-size: 1.5em;
+	background-color: #404;
+	padding-left: 30px;
+}
+
+.menu li {
+	vertical-align: middle;
+	display: inline-block;
+	list-style: none;
+	padding: 0px;
+	padding-left: 10px;
+	padding-right: 10px;
+}
+.menu div {
+	text-align: center;
+	padding: 10px;
+}
+.menu div:hover {
+	cursor: pointer;
+	background-color: #808;
+	border-top-left-radius: 10px;
+	border-top-right-radius: 10px;
+}
+.menu div.active {
+	background-color: #606;
+	border-top-left-radius: 10px;
+	border-top-right-radius: 10px;
+}
+
+input#search {
+	background: url(../images/search.png) no-repeat scroll 3px 6px;
+	color: #eee;
+	font-size: 0.7em;
+	width: 70px;
+	height: 17px;
+	padding: 5px;
+	margin: 5px;
+	padding-left: 22px;
+	padding-right: 15px;
+	background-color: #b5b;
+	border-radius: 5px;
+	opacity: 0.5;
+}
+.menu input:hover {
+	background-color: #d5d;
+}
+
+table#posts {
+	text-align: left;
+	width: 97%;
+	background-color: #606;
+	margin-left: 10px;
+	border-collapse: collapse;
+	border-spacing: 0px;
+	border-radius: 20px;
+}
+td.post {
+	text-align: center;
+	color: #fcf;
+	font-size: 0.7em;
+	cursor: pointer;
+	padding: 5px;
+}
+td.post:hover:not(.selected) {
+	background-color: #707;
+	border-radius: 20px;
+}
+td.post a.author {
+	font-size: 1.3em;
+	font-weight: bold;
+}
+img.post {
+	border-radius: 10px;
+	max-width: 150px;
+	max-height: 150px;
+}
+
+td.selected {
+	background-color: #d5d;
+	border-top-left-radius:  20px;
+	border-top-right-radius: 20px;
+}
+
+td.expanded {
+	background-color: #d5d;
+	text-align: center;
+	padding: 10px;
+	border-bottom-left-radius:  20px;
+	border-bottom-right-radius: 20px;
+}
+img.expanded {
+	border-radius: 10px;
+}
+.expanded_row {
+	text-align: center;
+}
+
+div.search {
+	position: absolute;
+	width: 150px;
+}
+div.search_result {
+	width: 150px;
+	color: #fff;
+	background-color: #d5d;
+	padding: 5px;
+}
+div.search_result:hover {
+	color: #000;
+	background-color: #d0d;
+	cursor: pointer;
+}
