@@ -1,4 +1,5 @@
 var POST_COLUMNS = 5;
+var POSTS_PER_REQUEST = 10;
 
 function init() {
 	setupMenu();
@@ -11,13 +12,45 @@ function handlePosts(json) {
 	if (!'posts' in json) {
 		throw new Error('posts not found in JSON');
 	}
-	$('table#posts tr:not(:first)').hide().remove();
-	$('table#posts tr:first').empty();
+	$('table#posts').append($('<tr/>'));
 	var index = 0;
-	for (var i in json['posts']) {
-		var post = json['posts'][i];
+	for (var i in json.posts) {
+		var post = json.posts[i];
 		index += addPost(index, post);
 	}
+	if (json.posts.length != POSTS_PER_REQUEST) {
+		$('body').data('has_more', false);
+	} else {
+		$('body').data('has_more', true);
+	}
+	var this_index = $('body').data('next_index');
+	$('body').data('next_index', this_index + json.posts.length);
+	$('body').data('loading', false);
+	scrollHandler();
+}
+
+function loadMore() {
+	if ($('body').data('loading')) {
+		// Already loading more
+		return;
+	} else if (!$('body').data('has_more')) {
+		// No more to load
+		return;
+	}
+	var url = window.location.pathname + 'api.cgi';
+	var params = $('body').data('next_params');
+	var index  = $('body').data('next_index');
+	params['start'] = index;
+	url += '?' + $.param(params);
+	$('body').data('loading', true);
+	// TODO display loading message
+	setTimeout(function() {
+		$.getJSON(url)
+			.fail(function() {
+				// TODO handle failure
+			})
+			.done(handlePosts);
+	}, 500);
 }
 
 function addPost(index, post) {
@@ -142,6 +175,8 @@ function setupMenu() {
 }
 
 function tabClickHandler($element) {
+	$('table#posts tr').hide().remove();
+	$('table#posts').empty();
 	$('.header .menu div').removeClass('active');
 	$element.addClass('active');
 	$('#submenu')
@@ -149,16 +184,22 @@ function tabClickHandler($element) {
 		.hide()
 		.slideDown(500);
 	var url = window.location.pathname + 'api.cgi';
-	url += '?method=get_posts';
-	url += '&sort=ups';
-	if ($element.html() !== 'gonewilder') {
-		// Not the main header
-		url += '&user=' + $element.html();
-		window.location.hash = 'user=' + $element.html();
-	} else {
+	var params = {
+		'method' : 'get_posts',
+		'sort'   : 'ups',
+		'count'  : POSTS_PER_REQUEST
+	};
+	if ($element.html() === 'gonewilder') {
 		// Main header
 		window.location.hash = '';
+	} else {
+		// Not the main header
+		params['user'] = $element.html();
+		window.location.hash = 'user=' + $element.html();
 	}
+	$('body').data('next_params', params);
+	$('body').data('next_index', 0);
+	url += '?' + $.param(params);
 	$.getJSON(url)
 		.fail(function(data) {
 			// TODO failure message
@@ -285,4 +326,16 @@ function searchText(text) {
 		});
 }
 
+function scrollHandler() {
+	var page     = $(document).height(); // Height of document
+	var viewport = $(window).height();   // Height of viewing window
+	var scroll   = $(document).scrollTop() || window.pageYOffset; // Scroll position (top)
+	var remain = page - (viewport + scroll);
+	if (viewport > page || // Viewport is bigger than entire page
+	    remain < 300) {    // User has scrolled down far enough
+		loadMore();
+	}
+}
+
 $(document).ready(init);
+$(window).scroll(scrollHandler);
