@@ -26,7 +26,9 @@ def main():
 
 	if   method == 'get_users': return get_users(keys)
 	elif method == 'get_user':  return get_user(keys)
-	elif method == 'search':    return get(keys)
+	elif method == 'get_posts': return get_posts(keys)
+	elif method == 'search':    return search(keys)
+	else: return {'error':'unexpected method'}
 
 
 '''
@@ -64,6 +66,19 @@ def get_user(keys):
 				start   = int(keys.get('start', 0)),
 				count   = int(keys.get('count', 10))
 			)
+	
+
+'''
+	Get list of posts
+'''
+def get_posts(keys):
+	return Queries.get_posts(
+			user    = keys.get('user', None),
+			sortby  = keys.get('sort', ''),
+			orderby = keys.get('order', ''),
+			start   = int(keys.get('start', 0)),
+			count   = int(keys.get('count', 10))
+		)
 
 
 '''
@@ -72,12 +87,26 @@ def get_user(keys):
 def search(keys):
 	if not 'search' in keys:
 		return {'error':'search parameter required for search method'}
-
-	return Queries.search(
-			keys['search'],
-			start   = int(keys.get('start', 0)),
-			count   = int(keys.get('count', 10))
-		)
+	if not 'type' in keys:
+		# Default search
+		return Queries.search(
+				keys['search'],
+				start   = int(keys.get('start', 0)),
+				count   = int(keys.get('count', 10))
+			)
+	elif keys['type'] == 'post':
+		return Queries.search_posts(
+				keys['search'],
+				start   = int(keys.get('start', 0)),
+				count   = int(keys.get('count', 10))
+			)
+	elif keys['type'] == 'user':
+		return Queries.search_users(
+				keys['search'],
+				start   = int(keys.get('start', 0)),
+				count   = int(keys.get('count', 10))
+			)
+		
 
 
 #####################
@@ -108,7 +137,7 @@ def sanitize_user(user): # lower() and strip() non-valid characters from user
 # ENTRY POINT
 
 if __name__ == '__main__':
-	print "Content-Type: text/html"
+	print "Content-Type: application/json"
 	print ""
 	try:
 		print dumps(main())

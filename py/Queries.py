@@ -161,13 +161,13 @@ class Queries(object):
 		
 	@staticmethod
 	def search(text, start=0, count=20):
-		(texts, filters) = self.get_search_fields(text)
+		(texts, filters) = Queries.get_search_fields(text)
 
 		# USERS
-		results_users = self.search_users(texts, filters, start, count)
+		results_users = Queries.search_users(texts, filters, start, count)
 
 		# POSTS
-		results_posts = self.search_posts(texts, filters, start, count)
+		results_posts = Queries.search_posts(texts, filters, start, count)
 
 		# COMMENTS
 		# TODO
@@ -366,6 +366,71 @@ class Queries(object):
 		cur.close()
 		return comments
 
+	@staticmethod
+	def get_posts(user=None, sortby='created', orderby='asc', start=0, count=20):
+		if sortby not in ['id', 'created', 'subreddit', 'ups']:
+			sortby = 'created'
+		if orderby not in ['asc', 'desc']:
+			orderby = 'desc'
+
+		sortby = 'posts.%s' % sortby
+		if user != None:
+			where = 'where username = ?'
+			values = [user]
+		else:
+			where = ''
+			values = []
+		query = '''
+			select
+				posts.id, title, url, selftext, subreddit, 
+				posts.created, permalink, ups, downs, username
+			from posts inner join users on users.id = posts.userid
+			%s
+			order by %s %s
+			limit  %d
+			offset %d
+		''' % (where, sortby, orderby, count, start)
+		db = DB()
+		cur = db.conn.cursor()
+		execur = cur.execute(query, values)
+		results = execur.fetchall()
+		posts = []
+		for (postid, title, url, selftext, subreddit, created, permalink, ups, downs, author) in results:
+			images = []
+			query = '''
+				select
+					path, width, height, size, thumb, type
+				from images
+				where
+					images.post = ?
+			'''
+			execur = cur.execute(query, [postid])
+			image_results = execur.fetchall()
+			for (path, width, height, size, thumb, imagetype) in image_results:
+				images.append({
+					'path'   : path,
+					'width'  : width,
+					'height' : height,
+					'size'   : size,
+					'thumb'  : thumb,
+					'type'   : imagetype
+				})
+			posts.append({
+				'id'        : postid,
+				'title'     : title,
+				'url'       : url,
+				'selftext'  : selftext,
+				'subreddit' : subreddit,
+				'created'   : created,
+				'permalink' : permalink,
+				'ups'       : ups,
+				'downs'     : downs,
+				'images'    : images,
+				'author'    : author
+			})
+		cur.close()
+		return { 'posts' : posts }
+
 if __name__ == '__main__':
 	q = Queries()
 	#print q.get_users('username', 'asc', start=0, count=20)
@@ -376,4 +441,5 @@ if __name__ == '__main__':
 	#print q.search('reddit:gonewild user:thatnakedgirl album:yes')
 	#print q.search('sexy')
 	#print q.get_user_posts('1_more_time')
-	print q.get_user_comments('1_more_time')
+	#print q.get_user_comments('1_more_time')
+	print q.get_posts()
