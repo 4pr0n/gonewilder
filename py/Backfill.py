@@ -46,7 +46,6 @@ def backfill_users():
 	cur.close()
 
 def backfill_posts():
-	POSTS = {}
 
 	(username, password) = db.get_credentials('reddit')
 	reddit.login(username, password)
@@ -58,42 +57,50 @@ def backfill_posts():
 			where legacy = 1
 			order by id
 	'''
-	execur = cur.execute(query)
-	results = execur.fetchall()
-
+	total = 0
+	ids_to_fetch = []
 	# Store existing values in dict
-	for (postid, userid, title, selftext, url, subreddit, over_18, created, legacy, permalink, ups, downs) in results:
-		postid = str(postid)
-		POSTS[postid] = {
-				'userid'    : userid,
-				'title'     : title,
-				'url'       : url,
-				'selftext'  : selftext,
-				'subreddit' : subreddit,
-				'over_18'   : over_18,
-				'created'   : created,
-				'legacy'    : legacy,
-				'permalink' : permalink,
-				'ups'       : ups,
-				'downs'     : downs
-			}
+	for (postid, userid, title, selftext, url, subreddit, over_18, created, legacy, permalink, ups, downs) in cur.execute(query):
+		ids_to_fetch.append(str(postid))
+		if len(ids_to_fetch) >= 99:
+			total += len(ids_to_fetch)
+			ids_to_fetch.append('1234')
+			url = 'http://www.reddit.com/by_id/t3_%s.json' % ',t3_'.join(ids_to_fetch)
+			try:
+				posts = reddit.get(url)
+			except HTTPError, e:
+				print 'HTTPError: %s' % str(e)
+				posts = []
+			for post in posts:
+				oldpost = {}
+				oldpost['title']     = post.title
+				oldpost['url']       = post.url
+				oldpost['selftext']  = post.selftext
+				oldpost['subreddit'] = post.subreddit
+				oldpost['created']   = int(post.created)
+				oldpost['permalink'] = post.permalink()
+				oldpost['over_18']   = int(post.over_18)
+				oldpost['legacy']    = 0
+				oldpost['id']        = post.id
+				oldpost['ups']       = post.ups
+				oldpost['downs']     = post.downs
+				Reddit.debug('updating post %s by %s' % (post.id, post.author))
+				update_post(oldpost)
+			db.conn.commit()
+			ids_to_fetch = list()
+			print 'running total: %d' % total
 
-	posts_per_page = 99
-	i = 0
-	while i < len(results):
-		ids = [str(x[0]) for x in results[i:i+posts_per_page]]
-		ids.append('t3_1234')
-		url = 'http://www.reddit.com/by_id/t3_%s.json' % ',t3_'.join(ids)
+	if len(ids_to_fetch) > 0:
+		total += len(ids_to_fetch)
+		ids_to_fetch.append('1234')
+		url = 'http://www.reddit.com/by_id/t3_%s.json' % ',t3_'.join(ids_to_fetch)
 		try:
 			posts = reddit.get(url)
-		except HTTPError:
+		except HTTPError, e:
+			print 'HTTPError: %s' % str(e)
 			posts = []
-
 		for post in posts:
-			post.id = str(post.id)
-			if not post.id in POSTS: post.id = post.id.rjust(6, '0')
-			if not post.id in POSTS: continue
-			oldpost = POSTS[post.id]
+			oldpost = {}
 			oldpost['title']     = post.title
 			oldpost['url']       = post.url
 			oldpost['selftext']  = post.selftext
@@ -108,8 +115,7 @@ def backfill_posts():
 			Reddit.debug('updating post %s by %s' % (post.id, post.author))
 			update_post(oldpost)
 		db.conn.commit()
-		i += posts_per_page
-		Reddit.debug('%d/%d - %d remaining' % (i, len(results), len(results)-i))
+	print 'total posts updated: %d' % total
 
 def update_post(post):
 	query = '''

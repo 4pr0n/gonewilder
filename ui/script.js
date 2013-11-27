@@ -178,11 +178,9 @@ function tabClickHandler($element) {
 	$('table#posts tr').hide().remove();
 	$('table#posts').empty();
 	$('.header .menu div').removeClass('active');
+	// TODO insert row for sorting
+	// TODO insert row for user info (download, get URLs, karma, created, updated, etc)
 	$element.addClass('active');
-	$('#submenu')
-		.stop()
-		.hide()
-		.slideDown(500);
 	var url = window.location.pathname + 'api.cgi';
 	var params = {
 		'method' : 'get_posts',
