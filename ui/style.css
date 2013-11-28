@@ -76,7 +76,7 @@ input#search {
 	background-color: #d5d;
 }
 
-table#posts {
+table.posts {
 	text-align: left;
 	width: 97%;
 	background-color: #606;
@@ -140,4 +140,26 @@ div.search_result:hover {
 	color: #000;
 	background-color: #d0d;
 	cursor: pointer;
+}
+
+tr.user {
+	border-radius: 20px;
+}
+tr.user:hover {
+	cursor:pointer;
+	background-color: #707;
+}
+td.user {
+	text-align: center;
+	color: #fcf;
+	font-size: 0.7em;
+	cursor: pointer;
+	padding: 5px;
+}
+div.username {
+	font-size: 1.7em;
+	font-weight: bold;
+}
+div.userinfo {
+	font-size: 1.0em;
 }

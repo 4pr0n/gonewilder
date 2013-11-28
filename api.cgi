@@ -140,7 +140,7 @@ if __name__ == '__main__':
 	print "Content-Type: application/json"
 	print ""
 	try:
-		print dumps(main())
+		print dumps(main(), indent=2)
 	except Exception, e:
 		# Return stacktrace
 		print dumps({'error': format_exc()})

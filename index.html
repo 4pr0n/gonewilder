@@ -1,8 +1,8 @@
 <!doctype html>
 <html>
 	<head>
-		<title>gonewild</title>
-		<meta name="description" content="Gonewild aggregator">
+		<title>gonewilder</title>
+		<meta name="description" content="/r/gonewild aggregator">
 		<meta charset="UTF-8">
 		<link href="./ui/style.css" rel="stylesheet" type="text/css">
 	</head>
@@ -11,15 +11,14 @@
 		<!-- HEADER -->
 		<div class="header">
 			<ul id="menubar" class="menu">
-				<li> <div id="menu_main" >gonewilder</div>
+				<li> <div id="menu_posts">posts</div>
+				<li> <div id="menu_users">users</div>
 				<li> <input type="text" id="search" value="search" autocomplete="off"/>
 			</ul>
 		</div>
 
-		<table id="posts">
-			<tr>
-			</tr>
-		</table>
+		<table class="posts" id="posts"></table>
+		<table class="posts" id="users"></table>
 
 		<!-- No javascript warning -->
 		<noscript>

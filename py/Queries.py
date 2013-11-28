@@ -191,8 +191,7 @@ class Queries(object):
 			orderby = 'desc'
 		query = '''
 			select
-				users.username, users.created, users.updated, 
-				users.deleted, users.views, users.rating, users.ratings,
+				id, users.username, users.created, users.updated, 
 				(select count(*) from posts    where posts.userid    = users.id) as post_count,
 				(select count(*) from comments where comments.userid = users.id) as comment_count,
 				(select count(*) from images   where images.userid   = users.id) as image_count,
@@ -209,50 +208,49 @@ class Queries(object):
 		execur = cur.execute(query)
 		results = execur.fetchall()
 		users = []
-		for (username, created, updated, 
-		     deleted, views, rating, ratings, 
-		     post_count, comment_count, image_count, album_count) in results:
+		for (userid, username, created, updated, 
+		     post_count, comment_count, 
+				 image_count, album_count) in results:
+			images = []
+			query = '''
+				select
+					path, width, height, size, thumb, type
+				from images
+				where
+					images.userid = ?
+				limit 4
+			'''
+			execur = cur.execute(query, [userid])
+			image_results = execur.fetchall()
+			for (path, width, height, size, thumb, imagetype) in image_results:
+				images.append({
+					'path'   : path,
+					'width'  : width,
+					'height' : height,
+					'size'   : size,
+					'thumb'  : thumb,
+					'type'   : imagetype
+				})
 			users.append( {
-				'user'     : username,
-				'created'  : created,
-				'updated'  : updated,
-				'deleted'  : deleted,
-				'views'    : views,
-				'rating'   : rating,
-				'ratings'  : ratings,
-				'posts'    : post_count,
-				'comments' : comment_count,
-				'images'   : image_count,
-				'albums'   : album_count
+				'user'      : username,
+				'created'   : created,
+				'updated'   : updated,
+				'post_n'    : post_count,
+				'comment_n' : comment_count,
+				'image_n'   : image_count,
+				'album_n'   : album_count,
+				'images'    : images
 			})
 		cur.close()
-		response = {
-			'users' : users
-		}
-		return response
+		return {
+				'users' : users
+			}
 
 	@staticmethod
 	def get_user_posts(user, sortby='created', orderby='asc', start=0, count=20):
 		# XXX Select from images, group by post,album
 		# ... but images -> post is many->one (even when not an album)
 
-		# 1) Images/Albums' "postid" is out of sync with Posts table. (611 orphaned images, 913 albums)
-		# 2) Posts need self-text.
-		# 3) We want vote counts on posts/comments
-		# 4) Some albums/images should be ignored (SFW posts!)
-		
-		# Solution: 
-		# New table schema.
-		#  -> up/down votes in posts/comments
-		#  -> seltext in posts
-		# Backfill existing images:
-		#  -> ensure postid is properly retrieved and stored (leading 0s?)
-		#  -> do *not* duplicate images! use oldest image first (sort by name should get oldest version first)
-		# Backfill existing posts via reddit by_id:
-		#  -> if post is 404'd on reddit, remove image (?) likely a banned sub / takedown
-		#  -> backfill comments as well ... (reddit.com/comments/postid/_/commentid)
-		#     expensive, but worth it
-		#  -> if comment is 404'd... remove image and entry in db?
 		if sortby not in ['id', 'created', 'subreddit', 'ups']:
 			sortby = 'created'
 		if orderby not in ['asc', 'desc']:
@@ -307,7 +305,10 @@ class Queries(object):
 				'images'    : images
 			})
 		cur.close()
-		return posts
+		return {
+				'user'  : user,
+				'posts' : posts
+			}
 
 	@staticmethod
 	def get_user_comments(user, sortby='created', orderby='asc', start=0, count=20):
@@ -364,7 +365,10 @@ class Queries(object):
 				'images'    : images
 			})
 		cur.close()
-		return comments
+		return {
+				'user'     : user,
+				'comments' : comments
+			}
 
 	@staticmethod
 	def get_posts(user=None, sortby='created', orderby='asc', start=0, count=20):

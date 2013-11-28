@@ -2,120 +2,126 @@ var POST_COLUMNS = 5;
 var POSTS_PER_REQUEST = 10;
 
 function init() {
-	setupMenu();
+	// Setup header buttons
+	$('.header .menu div').click(function() {
+		tabClickHandler($(this));
+	});
 	setupSearch();
-	// Click header to load images
-	$('.header .menu div:first').click();
+	// TODO Alter active menu depending on hash
+	$('.header .menu div').removeClass('active');
+	$('.header .menu div#menu_users').addClass('active');
+	// Click the active button to display images
+	$('.header .menu div.active').click();
 }
 
-function handlePosts(json) {
-	if (!'posts' in json) {
-		throw new Error('posts not found in JSON');
+function handleResponse(json) {
+	var $table, posts;
+	if ( 'user' in json ) {
+		handlePosts( $('table#user_' + json.user), json.posts );
 	}
-	$('table#posts').append($('<tr/>'));
-	var index = 0;
-	for (var i in json.posts) {
-		var post = json.posts[i];
-		index += addPost(index, post);
+	else if ( 'posts' in json ) {
+		handlePosts( $('table#posts'), json.posts );
 	}
-	if (json.posts.length != POSTS_PER_REQUEST) {
-		$('body').data('has_more', false);
-	} else {
-		$('body').data('has_more', true);
+	else if ( 'users' in json ) {
+		handleUsers( $('table#users'), json.users );
 	}
-	var this_index = $('body').data('next_index');
-	$('body').data('next_index', this_index + json.posts.length);
-	$('body').data('loading', false);
 	scrollHandler();
 }
 
-function loadMore() {
-	if ($('body').data('loading')) {
-		// Already loading more
-		return;
-	} else if (!$('body').data('has_more')) {
-		// No more to load
-		return;
+function handlePosts($table, posts) {
+	$table.append( $('<tr/>') );
+	var index = 0;
+	for (var i in posts) {
+		var post = posts[i];
+		index += addPost($table, index, post);
 	}
+	$table.data('has_more',   (posts.length == POSTS_PER_REQUEST) );
+	$table.data('next_index', $table.data('next_index') + posts.length);
+	$table.data('loading',    false);
+}
+
+function handleUsers($table, users) {
+	$table.append( $('<tr/>') );
+	for (var i in users) {
+		addUser($table, i, users[i]);
+	}
+	$table.data('has_more',   (posts.length == POSTS_PER_REQUEST) );
+	$table.data('next_index', $table.data('next_index') + posts.length);
+	$table.data('loading',    false);
+}
+
+function loadMore() {
+	var $table = $('table').filter(function() {
+		return $(this).css('display') !== 'none';
+	});
+	if ( $table.data('loading'))  { return; }
+	if (!$table.data('has_more')) { return; }
 	var url = window.location.pathname + 'api.cgi';
-	var params = $('body').data('next_params');
-	var index  = $('body').data('next_index');
-	params['start'] = index;
+	var params      = $table.data('next_params');
+	params['start'] = $table.data('next_index');
 	url += '?' + $.param(params);
-	$('body').data('loading', true);
+	$table.data('loading', true);
 	// TODO display loading message
 	setTimeout(function() {
 		$.getJSON(url)
 			.fail(function() {
 				// TODO handle failure
 			})
-			.done(handlePosts);
+			.done(handleResponse);
 	}, 500);
 }
 
-function addPost(index, post) {
+function addUser($table, index, user) {
+	var $tr = $('<tr/>')
+		.addClass('user')
+		.appendTo( $table )
+		.click(function() {
+			userTab(user.user);
+		});
+	var $td = $('<td/>')
+		.addClass('user')
+		.appendTo($tr);
+	var $div = $('<div/>').addClass('user');
+	$div.append(
+			$('<div/>')
+				.html(user.user)
+				.addClass('username')
+		);
+	$div.append(
+			$('<div/>')
+				.html(user.post_n + ' posts')
+				.addClass('userinfo')
+		);
+	$div.append(
+			$('<div/>')
+				.html(user.image_n + ' images')
+				.addClass('userinfo')
+		);
+	$div.appendTo($td);
+	for (var i in user.images) {
+		var $imgtd = $('<td/>')
+			.addClass('user')
+			.appendTo($tr);
+		$('<img/>')
+			.addClass('post')
+			.attr('src', user.images[i].thumb.substr(1))
+			.appendTo($imgtd);
+	}
+}
+
+function addPost($table, index, post) {
 	if (post.images.length == 0) {
 		console.log("No images for post " + post.id);
 		return 0;
 	}
 	if (index != 0 && index % (POST_COLUMNS) == 0) {
-		$('<tr/>').appendTo('table#posts');
+		$('<tr/>').appendTo( $table );
 	}
 	var $div = $('<td/>')
 		.addClass('post')
-		.data('post', post)
 		.click(function() {
-			// Select
-			$('td.selected').removeClass('selected');
-			$(this).addClass('selected');
-			// Expand
-			$('#expandrow')
-				.stop()
-				.removeAttr('id')
-				.remove();
-			var $etr = $('<tr/>')
-				.attr('id', 'expandrow')
-				.hide()
-				.insertAfter($(this).closest('tr'))
-				.show(500);
-			var $etd = $('<td/>')
-				.addClass('expanded')
-				.attr('colspan', POST_COLUMNS)
-				.appendTo($etr);
-			var $countdiv = $('<div/>')
-				.attr('id', 'expandcount')
-				.html('1 of ' + post.images.length)
-				.appendTo($etd);
-			if (post.images.length == 1) {
-				$countdiv.hide();
-			} else {
-				$countdiv.show();
-			}
-			var $img = $('<img/>')
-				.addClass('expanded')
-				.data('images', post.images)
-				.data('index', 0)
-				.attr('src', post.images[0].path.substr(1))
-				.css({
-					'max-width': ($('body').innerWidth()-40) + 'px',
-				})
-				.appendTo($etd)
-				.click(function() {
-					var index = $(this).data('index');
-					var images = $(this).data('images');
-					index += 1;
-					if (index >= images.length) index = 0;
-					$(this)
-						.attr('src', images[index].path.substr(1))
-						.data('index', index);
-					$('#expandcount').html((index + 1) + ' of ' + images.length);
-				});
-			// Scroll
-			$('html,body')
-				.animate({
-					'scrollTop': $('#expandrow').prev().offset().top,
-				}, 500);
-		})
+			postClickHandler($(this), post);
+		});
 
 	// Thumbnail
 	var $img = $('<img/>')
@@ -149,60 +155,131 @@ function addPost(index, post) {
 		})
 		.html('post')
 		.appendTo($div);
-	$('table#posts tr:last')
+	$table.find('tr:last')
 		.append($div);
 	return 1;
 }
 
-function userTab(user) {
-	$('#' + user).hide().remove();
-	$('<li/>')
-		.attr('id', user)
-		.append(
-			$('<div/>')
-				.html(user)
-				.click(function() { tabClickHandler($(this)) })
-				.click()
-		)
-		.appendTo($('#menubar'));
+function postClickHandler($td, post) {
+	// Select
+	$('td.selected').removeClass('selected');
+	$td.addClass('selected');
+	// Expand
+	$('#expandrow')
+		.stop()
+		.removeAttr('id')
+		.remove();
+	var $etr = $('<tr/>')
+		.attr('id', 'expandrow')
+		.hide()
+		.insertAfter($td.closest('tr'))
+		.show(500);
+	var $etd = $('<td/>')
+		.addClass('expanded')
+		.attr('colspan', POST_COLUMNS)
+		.remove('img')
+		.appendTo($etr);
+	var $countdiv = $('<div/>')
+		.attr('id', 'expandcount')
+		.html('1 of ' + post.images.length)
+		.hide()
+		.appendTo($etd);
+	if (post.images.length > 1) {
+		$countdiv.show();
+	}
+	// Image
+	var $img = $('<img/>')
+		.addClass('expanded')
+		.data('images', post.images)
+		.data('index', 0)
+		.attr('src', post.images[0].path.substr(1))
+		.css({
+			'max-width' : ($(document).innerWidth() * 0.95) + 'px',
+			'max-height': ($(document).innerHeight() - $td.height() - 100) + 'px'
+		})
+		.appendTo($etd)
+		.click(function() {
+			var images = $(this).data('images');
+			if (images.length == 0) { return };
+			var index = $(this).data('index');
+			index += 1;
+			if (index >= images.length) index = 0;
+			$(this)
+				.attr('src', images[index].path.substr(1))
+				.data('index', index);
+			$('#expandcount').html((index + 1) + ' of ' + images.length);
+		});
+	// Scroll
+	$('html,body')
+		.animate({
+			'scrollTop': $('#expandrow').prev().offset().top,
+		}, 500);
 }
 
-function setupMenu() {
-	$('.header .menu div:first').addClass('active');
-	$('.header .menu div').click(function() {
-		tabClickHandler($(this));
-	});
+function userTab(user) {
+	$('#tab_' + user).hide().remove();
+	var $div = 
+		$('<div/>')
+			.html(user)
+			.click(function() {
+				tabClickHandler($(this))
+			});
+	$('<li/>')
+		.attr('id', 'tab_' + user)
+		.append($div)
+		.appendTo($('#menubar'));
+	$div.click();
 }
 
 function tabClickHandler($element) {
-	$('table#posts tr').hide().remove();
-	$('table#posts').empty();
-	$('.header .menu div').removeClass('active');
-	// TODO insert row for sorting
-	// TODO insert row for user info (download, get URLs, karma, created, updated, etc)
-	$element.addClass('active');
+	// Set up URL and parameters for request
 	var url = window.location.pathname + 'api.cgi';
 	var params = {
-		'method' : 'get_posts',
 		'sort'   : 'ups',
 		'count'  : POSTS_PER_REQUEST
 	};
-	if ($element.html() === 'gonewilder') {
-		// Main header
-		window.location.hash = '';
+	// Set active tab
+	$('.header .menu div').removeClass('active');
+	$element.addClass('active');
+	// Hide existing table
+	$('table').filter(function() {
+		return $(this).css('display') !== 'none';
+	}).hide().css('display', 'none');
+	// Get appropriate table
+	var $table;
+	if ($element.html() === 'posts') {
+		$table = $('table#posts');
+		params['method'] = 'get_posts';
+		window.location.hash = 'posts';
+	} else if ($element.html() === 'users') {
+		$table = $('table#users');
+		params['method'] = 'get_users';
+		window.location.hash = 'users';
 	} else {
-		// Not the main header
-		params['user'] = $element.html();
-		window.location.hash = 'user=' + $element.html();
+		var user = $element.html();
+		$table = $('table#user_' + user);
+		if ( $table.size() == 0 ) {
+			$table = $('<table/>')
+				.attr('id', 'user_' + user)
+				.addClass('posts')
+				.insertAfter( $('table#users') );
+			// TODO insert row for user info (download, get URLs, karma, created, updated, etc)
+		}
+		params['user'] = user;
+		params['method'] = 'get_user';
+		window.location.hash = 'user=' + user;
 	}
-	$('body').data('next_params', params);
-	$('body').data('next_index', 0);
-	url += '?' + $.param(params);
-	$.getJSON(url)
-		.fail(function(data) {
-			// TODO failure message
-		})
-		.done(handlePosts);
+	// TODO insert row for sorting
+	// Store query parameters in table
+	$table.data('next_params', params);
+	$table.data('loading', false);
+	$table.data('has_more', true);
+	if ( $table.data('next_index') === undefined) {
+		$table.data('next_index', 0); // Start at 0
+	}
+	$table.show(500, function() {
+		scrollHandler();
+	});
 }
 
 function setupSearch() {
