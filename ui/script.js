@@ -1,5 +1,6 @@
 var POST_COLUMNS = 5;
 var POSTS_PER_REQUEST = 10;
+var USERS_PER_REQUEST = 5;
 
 function init() {
 	// Setup header buttons
@@ -45,8 +46,8 @@ function handleUsers($table, users) {
 	for (var i in users) {
 		addUser($table, i, users[i]);
 	}
-	$table.data('has_more',   (posts.length == POSTS_PER_REQUEST) );
-	$table.data('next_index', $table.data('next_index') + posts.length);
+	$table.data('has_more',   (users.length == USERS_PER_REQUEST) );
+	$table.data('next_index', $table.data('next_index') + users.length);
 	$table.data('loading',    false);
 }
 
@@ -236,7 +237,6 @@ function tabClickHandler($element) {
 	var url = window.location.pathname + 'api.cgi';
 	var params = {
 		'sort'   : 'ups',
-		'count'  : POSTS_PER_REQUEST
 	};
 	// Set active tab
 	$('.header .menu div').removeClass('active');
@@ -250,10 +250,12 @@ function tabClickHandler($element) {
 	if ($element.html() === 'posts') {
 		$table = $('table#posts');
 		params['method'] = 'get_posts';
+		params['count'] = POSTS_PER_REQUEST
 		window.location.hash = 'posts';
 	} else if ($element.html() === 'users') {
 		$table = $('table#users');
 		params['method'] = 'get_users';
+		params['count'] = USERS_PER_REQUEST
 		window.location.hash = 'users';
 	} else {
 		var user = $element.html();
@@ -267,6 +269,7 @@ function tabClickHandler($element) {
 		}
 		params['user'] = user;
 		params['method'] = 'get_user';
+		params['count'] = POSTS_PER_REQUEST
 		window.location.hash = 'user=' + user;
 	}
 	// TODO insert row for sorting

@@ -416,10 +416,11 @@ class DB:
 	def add_existing_image(self, user, oldimage, oldpath, subdir='', album_id=-1):
 		if 'tumblr' in oldpath:
 			# Can't properly handle tumblr links
-			self.debug('cannot properly handle tumblr links')
-			return
+			self.debug('cannot properly handle tumblr links; trying anyway')
+			#return
 		if subdir == '' and album_id == -1:
 			self.debug('adding image: %s' % oldpath)
+		# Ensure image is an actual image
 		try:
 			dims = ImageUtils.get_dimensions(oldpath)
 		except:
@@ -430,7 +431,7 @@ class DB:
 		thumbnail = path.join(ImageUtils.get_root(), 'content', user, subdir, 'thumbs', oldimage)
 		thumbnail = thumbnail.replace('.jpeg.jpg', '.jpg')
 		if path.exists(newimage):
-			self.debug('image already exists: %s' % newimage)
+			self.debug('new image already exists: %s' % newimage)
 			return
 
 		ImageUtils.create_subdirectories(path.join(ImageUtils.get_root(), 'content', user, subdir, 'thumbs'))
@@ -472,7 +473,6 @@ class DB:
 				self.add_post(p, legacy=1)
 			except Exception, e:
 				self.debug('add_existing_image: create post failed: %s' % str(e))
-				pass
 
 			# Add comment
 			if comment != None:
@@ -486,7 +486,6 @@ class DB:
 					self.add_comment(c, legacy=1)
 				except Exception, e:
 					self.debug('add_existing_image: create comment failed: %s' % str(e))
-					pass
 
 	def add_existing_album(self, user, oldalbum, oldpath):
 		newalbum = path.join(ImageUtils.get_root(), 'content', user, oldalbum)

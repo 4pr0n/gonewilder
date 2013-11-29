@@ -188,7 +188,7 @@ class Queries(object):
 		               'deleted', 'blacklist', 'views', 'rating', 'ratings']:
 			sortby = 'username'
 		if orderby not in ['asc', 'desc']:
-			orderby = 'desc'
+			orderby = 'asc'
 		query = '''
 			select
 				id, users.username, users.created, users.updated, 
