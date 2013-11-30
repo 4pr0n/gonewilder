@@ -42,9 +42,9 @@ class Post(Child,object):
 			self.from_json(json)
 	def from_json(self, json):
 		super(Post,self).from_json(json)
-		self.url       = json['url']
-		self.selftext  = json['selftext'] if json['is_self'] else None
-		self.title     = json['title']
+		self.url       = json['url'].decode('ascii', 'ignore')
+		self.selftext  = json['selftext'].decode('ascii', 'ignore') if json['is_self'] else None
+		self.title     = json['title'].decode('ascii', 'ignore')
 		
 	def permalink(self):
 		if self.subreddit != '':
@@ -61,7 +61,7 @@ class Comment(Child,object):
 			self.from_json(json)
 	def from_json(self, json):
 		super(Comment,self).from_json(json)
-		self.body    = json['body']
+		self.body    = json['body'].decode('ascii', 'ignore')
 		self.post_id = json['link_id']
 	def permalink(self):
 		if self.subreddit != '':
