@@ -81,7 +81,7 @@ def backfill_posts():
 				oldpost['permalink'] = post.permalink()
 				oldpost['over_18']   = int(post.over_18)
 				oldpost['legacy']    = 0
-				oldpost['id']        = post.id
+				oldpost['id']        = post.id.rjust(6, '0')
 				oldpost['ups']       = post.ups
 				oldpost['downs']     = post.downs
 				Reddit.debug('updating post %s by %s' % (post.id, post.author))
@@ -109,7 +109,7 @@ def backfill_posts():
 			oldpost['permalink'] = post.permalink()
 			oldpost['over_18']   = int(post.over_18)
 			oldpost['legacy']    = 0
-			oldpost['id']        = post.id
+			oldpost['id']        = post.id.rjust(6, '0')
 			oldpost['ups']       = post.ups
 			oldpost['downs']     = post.downs
 			Reddit.debug('updating post %s by %s' % (post.id, post.author))
@@ -128,7 +128,7 @@ def update_post(post):
 				over_18   = ?,
 				created   = ?,
 				permalink = ?,
-				legacy    = 0,
+				legacy    = ?,
 				ups       = ?,
 				downs     = ?
 			where
@@ -137,7 +137,7 @@ def update_post(post):
 	cur = db.conn.cursor()
 	cur.execute(query, (post['title'], post['url'], post['selftext'], post['subreddit'], 
 	                    post['over_18'], post['created'], post['permalink'],
-	                    post['ups'], post['downs'], post['id']) )
+	                    post['legacy'], post['ups'], post['downs'], post['id']) )
 	cur.close()
 
 
