@@ -42,9 +42,9 @@ class Post(Child,object):
 			self.from_json(json)
 	def from_json(self, json):
 		super(Post,self).from_json(json)
-		self.url       = json['url'].decode('ascii', 'ignore')
-		self.selftext  = json['selftext'].decode('ascii', 'ignore') if json['is_self'] else None
-		self.title     = json['title'].decode('ascii', 'ignore')
+		self.url       = Reddit.asciify(json['url'])
+		self.selftext  = Reddit.asciify(json['selftext']) if json['is_self'] else None
+		self.title     = Reddit.asciify(json['title'])
 		
 	def permalink(self):
 		if self.subreddit != '':
@@ -61,7 +61,7 @@ class Comment(Child,object):
 			self.from_json(json)
 	def from_json(self, json):
 		super(Comment,self).from_json(json)
-		self.body    = json['body'].decode('ascii', 'ignore')
+		self.body    = Reddit.asciify(json['body'])
 		self.post_id = json['link_id']
 	def permalink(self):
 		if self.subreddit != '':
@@ -81,6 +81,10 @@ class Reddit(object):
 	logger = stderr
 	httpy = Httpy(user_agent='user ripper by /u/4_pr0n, or contact admin@rarchives.com')
 	last_request = 0.0
+
+	@staticmethod
+	def asciify(text):
+		return text.encode('UTF-8').decode('ascii', 'ignore')
 
 	@staticmethod
 	def debug(text):
