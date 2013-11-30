@@ -127,7 +127,7 @@ class DB:
 		cur = self.conn.cursor()
 		query = '''create table if not exists %s (%s)''' % (table_name, schema)
 		cur.execute(query)
-		self.conn.commit()
+		self.commit()
 		cur.close()
 	
 	def commit(self):
@@ -148,7 +148,6 @@ class DB:
 				questions += '?'
 			exec_string = '''insert into %s values (%s)''' % (table, questions)
 			result = cur.execute(exec_string, values)
-			#self.conn.commit()
 			last_row_id = cur.lastrowid
 			cur.close()
 			return last_row_id
@@ -180,7 +179,6 @@ class DB:
 	def execute(self, statement):
 		cur = self.conn.cursor()
 		result = cur.execute(statement)
-		#self.conn.commit()
 		return result
 
 	#####################
@@ -209,7 +207,7 @@ class DB:
 		except sqlite3.IntegrityError, e:
 			self.debug('add_user: user "%s" already exists in %susers: %s' % (user, 'new' if new else '', str(e)))
 			raise e
-		self.conn.commit()
+		self.commit()
 
 	''' Finds user ID for username; creates new user if not found '''
 	def get_user_id(self, user):
@@ -265,7 +263,7 @@ class DB:
 				where username like "%s"
 		''' % (since_id, user)
 		cur.execute(query)
-		self.conn.commit()
+		self.commit()
 	
 	def add_post(self, post, legacy=0):
 		userid = self.get_user_id(post.author)
@@ -290,7 +288,7 @@ class DB:
 		except sqlite3.IntegrityError, e: # Column already exists
 			raise Exception('post already exists in DB (%s): %s' % (post.id, str(e)))
 		cur.close()
-		self.conn.commit()
+		self.commit()
 
 	def add_comment(self, comment, legacy=0):
 		userid = self.get_user_id(comment.author)
@@ -313,7 +311,7 @@ class DB:
 		except sqlite3.IntegrityError, e: # Column already exists
 			raise Exception('comment already exists in DB (%s): %s' % (comment.id, str(e)))
 		cur.close()
-		self.conn.commit()
+		self.commit()
 
 	def add_album(self, path, user, url, postid, commentid):
 		userid = self.get_user_id(user)
@@ -334,7 +332,7 @@ class DB:
 			raise Exception('album already exists in DB (%s): %s' % (path, str(e)))
 		lastrow = cur.lastrowid
 		cur.close()
-		self.conn.commit()
+		self.commit()
 		return lastrow
 
 	'''
@@ -366,7 +364,7 @@ class DB:
 			raise Exception('image already exists in DB (%s): %s' % (path, str(e)))
 		lastrow = cur.lastrowid
 		cur.close()
-		self.conn.commit()
+		self.commit()
 		return lastrow
 
 	'''
@@ -389,7 +387,7 @@ class DB:
 				try: self.add_user(user, new=False)
 				except: pass
 			cur.close()
-			self.conn.commit()
+			self.commit()
 		else:
 			cur.close()
 		return [str(x[0]) for x in users]
@@ -552,7 +550,7 @@ class DB:
 				where username like "%s"
 		''' % (int(time.time()), user)
 		cur.execute(query)
-		self.conn.commit()
+		self.commit()
 
 	def mark_as_deleted(self, user):
 		cur = self.conn.cursor()
@@ -562,7 +560,7 @@ class DB:
 				where username like "%s"
 		''' % (user)
 		cur.execute(query)
-		self.conn.commit()
+		self.commit()
 	
 	def get_config(self, key):
 		cur = self.conn.cursor()
@@ -589,7 +587,7 @@ class DB:
 		try:
 			execur = cur.execute(query)
 			result = execur.fetchone()
-			self.conn.commit()
+			self.commit()
 			cur.close()
 		except Exception, e:
 			self.debug('failed to set config key "%s" to value "%s": %s' % (key, value, str(e)))
