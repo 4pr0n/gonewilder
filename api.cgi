@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from py.Queries import Queries # Interacting w/ database
+from py.Gonewild import Gonewild
 
 from json import dumps
 
@@ -28,6 +29,7 @@ def main():
 	elif method == 'get_user':  return get_user(keys)
 	elif method == 'get_posts': return get_posts(keys)
 	elif method == 'search':    return search(keys)
+	elif method == 'add_user':  return add_user(keys)
 	else: return {'error':'unexpected method'}
 
 
@@ -107,6 +109,22 @@ def search(keys):
 				count   = int(keys.get('count', 10))
 			)
 		
+
+'''
+	Add user to list
+'''
+def add_user(keys):
+	if not 'user' in keys:
+		return {'error':'user not entered'}
+	user = sanitize_user(keys['user'])
+	if len(user) < 3:
+		return {'error':'invalid username: "%s" -- too short' % user}
+	gonewild = Gonewild()
+	if not gonewild.user_has_gone_wild(keys['user']):
+		return {'error':'user "%s" has not recently gone wild' % user}
+	#gonewild.db.add_user(user, new=True)
+	return {'error':'user added'}
+
 
 
 #####################

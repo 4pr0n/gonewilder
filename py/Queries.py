@@ -184,8 +184,8 @@ class Queries(object):
 	'''
 	@staticmethod
 	def get_users(sortby='username', orderby='asc', start=0, count=20):
-		if sortby not in ['username', 'sinceid', 'created', 'updated', 
-		               'deleted', 'blacklist', 'views', 'rating', 'ratings']:
+		if sortby not in ['username', 'created', 'updated', 
+		     'post_count', 'image_count', 'album_count', 'comment_count']:
 			sortby = 'username'
 		if orderby not in ['asc', 'desc']:
 			orderby = 'asc'
@@ -196,12 +196,11 @@ class Queries(object):
 				(select count(*) from comments where comments.userid = users.id) as comment_count,
 				(select count(*) from images   where images.userid   = users.id) as image_count,
 				(select count(*) from albums   where albums.userid   = users.id) as album_count
-			from (select * from users
-				group by users.username
-				order by %s %s
-				limit %d
-				offset %d
-				) users
+			from users
+			group by users.username
+			order by %s %s
+			limit %d
+			offset %d
 		''' % (sortby, orderby, count, start)
 		db = DB()
 		cur = db.conn.cursor()
@@ -372,7 +371,7 @@ class Queries(object):
 
 	@staticmethod
 	def get_posts(user=None, sortby='created', orderby='asc', start=0, count=20):
-		if sortby not in ['id', 'created', 'subreddit', 'ups']:
+		if sortby not in ['created', 'subreddit', 'ups', 'username']:
 			sortby = 'created'
 		if orderby not in ['asc', 'desc']:
 			orderby = 'desc'

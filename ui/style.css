@@ -30,7 +30,9 @@ ul.menu {
 	padding: 0px;
 	margin: 0px;
 	font-size: 1.5em;
+	color: #fff;
 	background-color: #404;
+	text-shadow: 1px 1px 2px black;
 	padding-left: 30px;
 }
 
@@ -162,4 +164,41 @@ div.username {
 }
 div.userinfo {
 	font-size: 1.0em;
+}
+
+div#statusbar {
+	display: none;
+	width: 100%;
+	position:fixed;
+	top: 0;
+	left: 0;
+	z-index: 99;
+	text-align: center;
+	font-size: 0.9em;
+	font-weight: bold;
+	background-color: #f0f;
+	color: #fff;
+	text-shadow: 1px 1px 2px black;
+}
+
+td.sort {
+	text-align: center;
+	padding: 5px;
+	white-space: nowrap;
+}
+span.sort {
+	padding: 2px;
+	padding-left:  8px;
+	padding-right: 8px;
+	margin-right: 5px;
+	margin-left:  5px;
+	font-weight: bold;
+	text-shadow: 1px 1px 2px black;
+	color: #fff;
+	background-color: #d0d;
+	border-radius: 10px;
+}
+span.sort:hover {
+	cursor: pointer;
+	background-color: #f0f;
 }

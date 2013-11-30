@@ -42,7 +42,11 @@ class Gonewild(object):
 
 	def user_has_gone_wild(self, user):
 		# Look at last 100 submissions
-		children = Reddit.get_user('%s/submitted' % user, max_pages=1)
+		try:
+			children = Reddit.get_user('%s/submitted' % user, max_pages=1)
+		except Exception:
+			# User is 404
+			return False
 		for child in children:
 			if type(child) == Post:
 				if child.subreddit == 'gonewild' or \
@@ -226,11 +230,16 @@ class Gonewild(object):
 			user = users[last_index]
 			self.poll_user(user) # Poll user for content
 			self.db.set_config('last_user', user)
+	
+	def add_top_users(self):
+		subs = ['gonewild']
+		self.debug('add_top_users: loading top posts for the week from %s' % ','.join(subs))
+		posts = self.reddit.get('http://www.reddit.com/r/%s/top?t=week' % '+'.join(subs))
+		for post in posts:
+			if not self.db.user_already_added(post.author):
+				self.debug('add_top_users: found new user, adding /u/%s' % post.author)
+				self.add_user(post.author, new=True)
 
 if __name__ == '__main__':
 	gw = Gonewild()
-	user = '-delrey'
-	if not gw.db.user_already_added(user):
-		gw.db.add_user(user, new=True)
 	gw.infinite_loop()
-	#print 'user has gone wild: %s' % gw.user_has_gone_wild('thediggitydank')

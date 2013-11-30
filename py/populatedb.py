@@ -33,29 +33,6 @@ def populate_db():
 				#print "album: %s" % itempath
 				db.add_existing_album(user, item, itempath)
 
-'''
-	Iterate over every user, 
-	Get most-recent post id,
-	Set user's "last since" id to the latest post id
-'''
-def set_last_since():
-	cur = db.conn.cursor()
-	query = '''
-		select username,themax 
-		from 
-			users,
-			(
-				select userid,max(posts.id) as themax 
-				from posts 
-				group by posts.userid
-			)
-		where userid = users.id
-	'''
-	for user,since in cur.execute(query).fetchall():
-		print user,since
-		db.set_last_since_id(user, since)
-
 if __name__ == '__main__':
 	populate_db()
-	#set_last_since()
 	pass

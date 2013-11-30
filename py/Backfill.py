@@ -197,6 +197,30 @@ def backfill_comments():
 			cur.execute(query, (postid, subreddit, text, created, permalink, legacy, ups, downs, commentid) )
 	cur.close()
 
+
+'''
+	Iterate over every user, 
+	Get most-recent post id,
+	Set user's "last since" id to the latest post id
+'''
+def backfill_last_since():
+	cur = db.conn.cursor()
+	query = '''
+		select username,themax 
+		from 
+			users,
+			(
+				select userid,max(posts.id) as themax 
+				from posts 
+				group by posts.userid
+			)
+		where userid = users.id
+	'''
+	for user,since in cur.execute(query).fetchall():
+		print user,since
+		db.set_last_since_id(user, since)
+
 if __name__ == '__main__':
 	#backfill_users()
-	backfill_posts()
+	#backfill_posts()
+	backfill_last_since()

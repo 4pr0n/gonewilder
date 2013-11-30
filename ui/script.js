@@ -58,7 +58,7 @@ function loadMore() {
 	if ( $table.data('loading'))  { return; }
 	if (!$table.data('has_more')) { return; }
 	var url = window.location.pathname + 'api.cgi';
-	var params      = $table.data('next_params');
+	var params = $table.data('next_params');
 	params['start'] = $table.data('next_index');
 	url += '?' + $.param(params);
 	$table.data('loading', true);
@@ -163,6 +163,12 @@ function addPost($table, index, post) {
 
 function postClickHandler($td, post) {
 	// Select
+	if ($td.hasClass('selected')) {
+		// Selected post was clicked
+		$('td.selected').removeClass('selected');
+		$('#expandrow').stop().hide(500, function() { $(this).remove() });
+		return;
+	}
 	$('td.selected').removeClass('selected');
 	$td.addClass('selected');
 	// Expand
@@ -235,9 +241,6 @@ function userTab(user) {
 function tabClickHandler($element) {
 	// Set up URL and parameters for request
 	var url = window.location.pathname + 'api.cgi';
-	var params = {
-		'sort'   : 'ups',
-	};
 	// Set active tab
 	$('.header .menu div').removeClass('active');
 	$element.addClass('active');
@@ -245,19 +248,39 @@ function tabClickHandler($element) {
 	$('table').filter(function() {
 		return $(this).css('display') !== 'none';
 	}).hide().css('display', 'none');
-	// Get appropriate table
+
+	var params = {
+		'sort' : 'ups',
+		'order' : 'desc'
+	};
+
+	// Get table/params depending on type of content
 	var $table;
 	if ($element.html() === 'posts') {
+		// List of posts from all users
 		$table = $('table#posts');
 		params['method'] = 'get_posts';
-		params['count'] = POSTS_PER_REQUEST
+		params['count'] = POSTS_PER_REQUEST;
 		window.location.hash = 'posts';
-	} else if ($element.html() === 'users') {
+		if ( $table.find('tr.sort').size() == 0) {
+			addPostSortRow($table);
+		}
+	}
+	else if ($element.html() === 'users') {
+		// List of all users
 		$table = $('table#users');
 		params['method'] = 'get_users';
-		params['count'] = USERS_PER_REQUEST
+		params['count']  = USERS_PER_REQUEST;
+		params['sort']   = 'username';
+		params['order']  = 'asc';
 		window.location.hash = 'users';
-	} else {
+		// Insert sort options if needed
+		if ( $table.find('tr.sort').size() == 0) {
+			addUserSortRow($table);
+		}
+	}
+	else {
+		// List of posts for specific user
 		var user = $element.html();
 		$table = $('table#user_' + user);
 		if ( $table.size() == 0 ) {
@@ -267,13 +290,23 @@ function tabClickHandler($element) {
 				.insertAfter( $('table#users') );
 			// TODO insert row for user info (download, get URLs, karma, created, updated, etc)
 		}
-		params['user'] = user;
+		params['user']   = user;
 		params['method'] = 'get_user';
-		params['count'] = POSTS_PER_REQUEST
+		params['count']  = POSTS_PER_REQUEST;
 		window.location.hash = 'user=' + user;
+		if ( $table.find('tr.sort').size() == 0) {
+			addPostSortRow($table);
+		}
 	}
-	// TODO insert row for sorting
 	// Store query parameters in table
+	if ($table.data('next_params') !== undefined) {
+		if ('sort' in $table.data('next_params')) {
+			params['sort'] = $table.data('next_params').sort;
+		}
+		if ('order' in $table.data('next_params')) {
+			params['order'] = $table.data('next_params').order;
+		}
+	}
 	$table.data('next_params', params);
 	$table.data('loading', false);
 	$table.data('has_more', true);
@@ -395,13 +428,95 @@ function searchText(text) {
 			if (data.users.length == 0) {
 				$('<div/>')
 					.addClass('search_result')
-					.html('no results')
+					.click(function() {
+						var url = window.location.pathname + 'api.cgi';
+						url += '?method=add_user';
+						url += '&user=' + text;
+						$.getJSON(url)
+							.fail(function(data) {
+								statusbar('failed to add user, server error');
+							})
+							.done(function(data) {
+								if ('error' in data) {
+									statusbar(data.error);
+								} else {
+									statusbar('undefined error when adding user "' + text + '"');
+								}
+							});
+					})
+					.html('+add user "' + text + '"')
 					.appendTo($div);
 			}
 			$div
 				.show()
 				.slideDown(500);
 		});
+}
+
+function statusbar(text, timeout) {
+	if (timeout === undefined) timeout = 2000;
+	$('div#statusbar')
+		.stop()
+		.hide()
+		.html(text)
+		.slideDown(500,
+			function() {
+				setTimeout( function() {
+					$('div#statusbar').slideUp(500);
+				}, timeout);
+			});
+}
+
+function addPostSortRow($table) {
+	$table.find('tr.sort').remove();
+	var $tr = $('<tr/>').addClass('sort');
+	var $td = $('<td/>')
+		.attr('colspan', POST_COLUMNS)
+		.addClass('sort')
+		.appendTo($tr)
+		.append( $('<span/>').html('sort by:') );
+	$td.append(createSortButton($table, 'sort', 'ups'));
+	$td.append(createSortButton($table, 'sort', 'created'));
+	$td.append(createSortButton($table, 'sort', 'username'));
+	$td.append( $('<span/>').html('order by:').css('padding-left', '10px') );
+	$td.append(createSortButton($table, 'order', 'asc'));
+	$td.append(createSortButton($table, 'order', 'desc'));
+	$table.append($tr);
+}
+function addUserSortRow($table) {
+	$table.find('tr.sort').remove();
+	var $tr = $('<tr/>').addClass('sort');
+	var $td = $('<td/>')
+		.attr('colspan', POST_COLUMNS)
+		.addClass('sort')
+		.appendTo($tr)
+		.append( $('<span/>').html('sort by:') );
+	$td.append(createSortButton($table, 'sort', 'username'));
+	$td.append(createSortButton($table, 'sort', 'created'));
+	$td.append(createSortButton($table, 'sort', 'updated'));
+	$td.append(createSortButton($table, 'sort', 'post_count'));
+	$td.append( $('<span/>').html('order by:').css('padding-left', '10px') );
+	$td.append(createSortButton($table, 'order', 'asc'));
+	$td.append(createSortButton($table, 'order', 'desc'));
+	$table.append($tr);
+}
+
+function createSortButton($table, type, label) {
+	return $('<span/>')
+		.addClass('sort')
+		.html(label)
+		.click(function() {
+			// Set params
+			$table.data('next_params')[type] = label;
+			$table.data('next_index', 0);
+			// Remove existing content
+			$table.find('tr:not(.sort)').remove();
+			// Refresh with new params
+			scrollHandler();
+		});
+}
+
+function clearTable($table) {
 }
 
 function scrollHandler() {
