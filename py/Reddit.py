@@ -16,7 +16,7 @@ class Child(object):
 		if json != None:
 			self.from_json(json)
 	def from_json(self, json):
-		self.id        = json['id']
+		self.id        = json['id'].rjust(6, '0')
 		self.subreddit = json['subreddit']
 		self.created   = json['created']
 		self.author    = json['author']
@@ -65,9 +65,9 @@ class Comment(Child,object):
 		self.post_id = json['link_id']
 	def permalink(self):
 		if self.subreddit != '':
-			return 'http://reddit.com/r/%s/comments/%s/_/%s' % (self.subreddit, self.post_id, self.id)
+			return 'http://reddit.com/r/%s/comments/%s/_/%s' % (self.subreddit, self.post_id.replace('t3_',''), self.id)
 		else:
-			return 'http://reddit.com/comments/%s/_/%s' % (self.post_id, self.id)
+			return 'http://reddit.com/comments/%s/_/%s' % (self.post_id.replace('t3_',''), self.id)
 
 class User(object):
 	def __init__(self):
