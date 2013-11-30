@@ -373,11 +373,13 @@ class Queries(object):
 	def get_posts(user=None, sortby='created', orderby='asc', start=0, count=20):
 		if sortby not in ['created', 'subreddit', 'ups', 'username']:
 			sortby = 'created'
-		if sortby == 'username': sortby = 'users.username'
+		if sortby == 'username':
+			sortby = 'users.username'
+		else:
+			sortby = 'posts.%s' % sortby
 		if orderby not in ['asc', 'desc']:
 			orderby = 'desc'
 
-		sortby = 'posts.%s' % sortby
 		if user != None:
 			where = 'where username = ?'
 			values = [user]
