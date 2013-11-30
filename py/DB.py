@@ -158,11 +158,16 @@ class DB:
 	def get_cursor(self):
 		return self.conn.cursor()
 	
-	def count(self, table, where):
+	def count(self, table, where, values=[]):
 		cur = self.conn.cursor()
-		result = cur.execute('''select count(*) from %s where %s''' % (table, where, )).fetchall()
+		query = '''
+			select count(*)
+				from %s
+				where %s
+		''' % (table, where)
+		result = cur.execute(query, values).fetchone()
 		cur.close()
-		return result[0][0]
+		return result[0]
 	
 	def select(self, what, table, where=''):
 		cur = self.conn.cursor()

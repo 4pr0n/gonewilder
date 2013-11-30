@@ -494,7 +494,6 @@ function addUserSortRow($table) {
 	$td.append(createSortButton($table, 'sort', 'username'));
 	$td.append(createSortButton($table, 'sort', 'created'));
 	$td.append(createSortButton($table, 'sort', 'updated'));
-	$td.append(createSortButton($table, 'sort', 'post_count'));
 	$td.append( $('<span/>').html('order by:').css('padding-left', '10px') );
 	$td.append(createSortButton($table, 'order', 'asc'));
 	$td.append(createSortButton($table, 'order', 'desc'));

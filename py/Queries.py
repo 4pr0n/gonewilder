@@ -184,20 +184,14 @@ class Queries(object):
 	'''
 	@staticmethod
 	def get_users(sortby='username', orderby='asc', start=0, count=20):
-		if sortby not in ['username', 'created', 'updated', 
-		     'post_count', 'image_count', 'album_count', 'comment_count']:
+		if sortby not in ['username', 'created', 'updated']:
 			sortby = 'username'
 		if orderby not in ['asc', 'desc']:
 			orderby = 'asc'
 		query = '''
 			select
-				id, users.username, users.created, users.updated, 
-				(select count(*) from posts    where posts.userid    = users.id) as post_count,
-				(select count(*) from comments where comments.userid = users.id) as comment_count,
-				(select count(*) from images   where images.userid   = users.id) as image_count,
-				(select count(*) from albums   where albums.userid   = users.id) as album_count
+				id, users.username, users.created, users.updated
 			from users
-			group by users.username
 			order by %s %s
 			limit %d
 			offset %d
@@ -207,9 +201,7 @@ class Queries(object):
 		execur = cur.execute(query)
 		results = execur.fetchall()
 		users = []
-		for (userid, username, created, updated, 
-		     post_count, comment_count, 
-				 image_count, album_count) in results:
+		for (userid, username, created, updated) in results:
 			images = []
 			query = '''
 				select
@@ -230,15 +222,17 @@ class Queries(object):
 					'thumb'  : thumb,
 					'type'   : imagetype
 				})
+
+			post_count  = db.count('posts',  'userid = ?', [userid])
+			image_count = db.count('images', 'userid = ?', [userid])
+			
 			users.append( {
-				'user'      : username,
-				'created'   : created,
-				'updated'   : updated,
-				'post_n'    : post_count,
-				'comment_n' : comment_count,
-				'image_n'   : image_count,
-				'album_n'   : album_count,
-				'images'    : images
+				'user'    : username,
+				'created' : created,
+				'updated' : updated,
+				'images'  : images,
+				'post_n'  : post_count,
+				'image_n' : image_count
 			})
 		cur.close()
 		return {
