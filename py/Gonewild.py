@@ -244,7 +244,7 @@ class Gonewild(object):
 			if post.author == '[deleted]': continue
 			if not self.db.user_already_added(post.author):
 				self.debug('add_top_users: found new user, adding /u/%s' % post.author)
-				self.add_user(post.author, new=True)
+				self.db.add_user(post.author, new=True)
 
 if __name__ == '__main__':
 	gw = Gonewild()
