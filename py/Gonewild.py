@@ -234,7 +234,7 @@ class Gonewild(object):
 	def add_top_users(self):
 		subs = ['gonewild']
 		self.debug('add_top_users: loading top posts for the week from %s' % ','.join(subs))
-		posts = self.reddit.get('http://www.reddit.com/r/%s/top?t=week' % '+'.join(subs))
+		posts = self.reddit.get('http://www.reddit.com/r/%s/top.json?t=week' % '+'.join(subs))
 		for post in posts:
 			if post.author == '[deleted]': continue
 			if not self.db.user_already_added(post.author):
