@@ -221,12 +221,17 @@ class Gonewild(object):
 		last_index = 0 if last_user == None or last_user not in users else users.index(last_user)
 
 		while True:
-			newusers = self.db.get_users(new=True) # Check for newly-added users
+			# Look for and poll newly-added users
+			newusers = self.db.get_users(new=True)
 			for newuser in newusers:
-				users.append(newuser)       # Add new user to existing list
+				users.append(newuser)   # Add new user to existing list
 				self.poll_user(newuser) # Poll new user for content
+			# Look for /top if we hit the end of the list
 			last_index += 1
-			if last_index >= len(users): last_index = 0
+			if last_index >= len(users):
+				last_index = 0
+				add_top_users() # Add users from /top
+
 			user = users[last_index]
 			self.poll_user(user) # Poll user for content
 			self.db.set_config('last_user', user)
