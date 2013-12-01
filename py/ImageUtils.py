@@ -42,6 +42,9 @@ class ImageUtils(object):
 		elif '.' in url and url.lower()[url.rfind('.')+1:] in ['jpg', 'jpeg', 'png', 'gif']:
 			# Direct link to image
 			return ('image', None, [url])
+		elif '.' in url and url.lower()[url.rfind('.')+1:] in ['mp4', 'flv', 'wmv']:
+			# Direct link to video
+			return ('video', None, [url])
 		elif 'xhamster.com' in url:
 			# xhamster
 			return ImageUtils.get_urls_xhamster(url)
@@ -57,6 +60,9 @@ class ImageUtils(object):
 		elif 'vine.co/' in url:
 			# vine
 			return ImageUtils.get_urls_vine(url)
+		elif 'vidble.com/' in url:
+			# vidble
+			return ImageUtils.get_urls_vidble(url)
 		else:
 			raise Exception('domain not supported; %s' % url)
 	
@@ -128,6 +134,18 @@ class ImageUtils(object):
 		for link in ImageUtils.httpy.between(r, 'property="twitter:image" content="', '"'):
 			return ('video', None, [link])
 		raise Exception('no video found at %s' % url)
+
+	################
+	# VIDBLE
+	@staticmethod
+	def get_urls_vidble(url):
+		ImageUtils.debug('vidble: getting %s' % url)
+		r = ImageUtils.httpy.get(url)
+		urls = []
+		for index, link in enumerate(ImageUtils.httpy.between(r, "<img src='", "'")):
+			if not link.startswith('/'): link = '/%s' % link
+			urls.append('http://www.vidble.com%s' % link.replace('_med.', '.'))
+		return urls
 
 	################
 	# IMGUR
@@ -324,6 +342,8 @@ if __name__ == '__main__':
 	#url = 'http://videobam.com/jcLzr'
 	#url = 'http://alwaysgroundedx.tumblr.com/private/22807448211/tumblr_m3tyhmw3mQ1ruoc8i'
 	#url = 'https://vine.co/v/h6Htgnj7Z5q'
+	#url = 'http://www.vidble.com/album/CwlMIYqm'
+	#url = 'http://www.vidble.com/ieIvnqJY4v'
 	#print ImageUtils.get_urls(url)
 	#ImageUtils.create_thumbnail('test.jpg', 'test_thumb.jpg')
 	#ImageUtils.create_thumbnail('../test.mp4', '../test_thumb.jpg')

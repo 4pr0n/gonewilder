@@ -552,9 +552,9 @@ class DB:
 		query = '''
 			update users
 				set updated = %d
-				where username like "%s"
-		''' % (int(time.time()), user)
-		cur.execute(query)
+				where username like ?
+		''' % int(time.time())
+		cur.execute(query, [user])
 		self.commit()
 
 	def mark_as_deleted(self, user):
