@@ -230,7 +230,7 @@ class Gonewild(object):
 			last_index += 1
 			if last_index >= len(users):
 				last_index = 0
-				add_top_users() # Add users from /top
+				self.add_top_users() # Add users from /top
 
 			user = users[last_index]
 			self.poll_user(user) # Poll user for content
