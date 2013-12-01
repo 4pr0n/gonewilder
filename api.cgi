@@ -122,7 +122,7 @@ def add_user(keys):
 	gonewild = Gonewild()
 	if not gonewild.user_has_gone_wild(keys['user']):
 		return {'error':'user "%s" has not recently gone wild' % user}
-	#gonewild.db.add_user(user, new=True)
+	gonewild.db.add_user(user, new=True)
 	return {'error':'user added'}
 
 
