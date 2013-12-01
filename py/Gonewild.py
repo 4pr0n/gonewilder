@@ -73,25 +73,25 @@ class Gonewild(object):
 
 		since_id = self.db.get_last_since_id(user)
 		# Get posts/comments for user
-		self.debug('poll_user: "%s" since "%s"' % (user, since_id))
+		self.debug('%s: poll_user: since "%s"' % (user, since_id))
 		try:
 			children = Reddit.get_user(user, since=since_id)
 		except Exception, e:
 			if '404: Not Found' in str(e):
 				# User is deleted, mark it as such
-				self.debug('poll_user: user is 404, marking as deleted')
+				self.debug('%s: poll_user: user is 404, marking as deleted' % user)
 				self.db.mark_as_deleted(user)
 				return
-			self.debug('poll_user: error %s' % str(e))
+			self.debug('%s: poll_user: error %s' % (user, str(e)))
 			return
-		self.debug('poll_user: %d new posts and comments found' % len(children))
 
 		if len(children) == 0:
-			#self.debug('poll_user: no new posts/comments found')
+			#self.debug('%s: poll_user: no new posts/comments found' % user)
 			return
 
+		self.debug('%s: poll_user: %d new posts and comments found' % (user, len(children)))
 		# Set lats 'since' to the most-recent post/comment ID
-		self.debug('poll_user: setting most-recent since_id to "%s"' % children[0].id)
+		self.debug('%s: poll_user: setting most-recent since_id to "%s"' % (user, children[0].id))
 		self.db.set_last_since_id(user, children[0].id)
 
 		for child in children:
@@ -104,13 +104,13 @@ class Gonewild(object):
 					#self.debug('Comment: %d urls: %s "%s"' % (len(urls), child.permalink(), child.body.replace('\n', '')[0:30]))
 					self.db.add_comment(child)
 			except Exception, e:
-				self.debug('poll_user: %s' % str(e))
+				self.debug('%s: poll_user: %s' % (user, str(e)))
 				continue # If we can't add the post/comment to DB, skip it
 			if len(urls) > 0:
-				self.debug('poll_user: found %d url(s) in child %s' % (len(urls), child.permalink()))
+				self.debug('%s: poll_user: found %d url(s) in child %s' % (user, len(urls), child.permalink()))
 				for url_index, url in enumerate(urls):
 					self.process_url(url, url_index, child)
-		self.debug('poll_user: done')
+		self.debug('%s: poll_user: done' % user)
 		self.logger.close()
 		self.logger = self.root_log
 
@@ -145,14 +145,14 @@ class Gonewild(object):
 		try:
 			(media_type, albumname, medias) = ImageUtils.get_urls(url)
 		except Exception, e:
-			self.debug('process_url: unable to get URLs for %s: %s' % (url, str(e)))
+			self.debug('%s: process_url: unable to get URLs for %s: %s' % (child.author, url, str(e)))
 			return
 
 		if albumname != None:
 			# Album!
 			albumname = '%s-%s' % (base_fname, albumname)
 			working_dir = path.join(working_dir, albumname)
-			#self.debug('process_url: adding album to database')
+			#self.debug('%s: process_url: adding album to database' % child.author)
 			album_id = self.db.add_album(
 					working_dir,
 					child.author,
@@ -173,12 +173,12 @@ class Gonewild(object):
 
 			# Download URL
 			try:
-				self.debug('process_url: downloading #%d %s' % (media_index + 1, media))
+				self.debug('%s: process_url: downloading #%d %s' % (child.author, media_index + 1, media))
 				ImageUtils.httpy.download(media, saveas)
 				if path.getsize(saveas) == 503:
 					raise Exception('503b = removed')
 			except Exception, e:
-				self.debug('process_url: failed to download #%d: %s, moving on' % (media_index + 1, str(e)))
+				self.debug('%s: process_url: failed to download #%d: %s, moving on' % (child.author, media_index + 1, str(e)))
 				continue
 
 			# Get media information (width, height, size)
@@ -186,7 +186,7 @@ class Gonewild(object):
 				(width, height) = ImageUtils.get_dimensions(saveas)
 			except Exception, e:
 				# If we cannot process the media file, skip it!
-				self.debug('process_url: #%d %s' % (media_index + 1, str(e)))
+				self.debug('%s: process_url: #%d %s' % (child.author, media_index + 1, str(e)))
 				continue
 			size = path.getsize(saveas)
 
@@ -196,7 +196,7 @@ class Gonewild(object):
 				ImageUtils.create_thumbnail(saveas, savethumbas)
 			except Exception, e:
 				savethumbas = path.join(ImageUtils.get_root(), 'images', 'nothumb.png')
-				self.debug('process_url: failed to create thumb #%d: %s, using default' % (media_index + 1, str(e)))
+				self.debug('%s: process_url: failed to create thumb #%d: %s, using default' % (child.author, media_index + 1, str(e)))
 
 			# Add to DB
 			self.db.add_image(
@@ -236,6 +236,7 @@ class Gonewild(object):
 		self.debug('add_top_users: loading top posts for the week from %s' % ','.join(subs))
 		posts = self.reddit.get('http://www.reddit.com/r/%s/top?t=week' % '+'.join(subs))
 		for post in posts:
+			if post.author == '[deleted]': continue
 			if not self.db.user_already_added(post.author):
 				self.debug('add_top_users: found new user, adding /u/%s' % post.author)
 				self.add_user(post.author, new=True)
