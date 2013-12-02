@@ -3,16 +3,35 @@ var POSTS_PER_REQUEST = 10;
 var USERS_PER_REQUEST = 5;
 
 function init() {
-	// Setup header buttons
-	$('.header .menu div').click(function() {
-		tabClickHandler($(this));
-	});
 	setupSearch();
-	// TODO Alter active menu depending on hash
-	$('.header .menu div').removeClass('active');
-	$('.header .menu div#menu_users').addClass('active');
-	// Click the active button to display images
-	$('.header .menu div.active').click();
+	// Setup header buttons
+	$('.header .menu div')
+		.click(function() {
+			tabClickHandler($(this));
+		})
+		.removeClass('active');
+	// Create/click header depending on hash
+	var keys = getQueryHashKeys(window.location.hash);
+	keys['page'] = keys['page'] || 'users'; // Default to users page
+	if (keys['page'] === 'posts' || keys['page'] === 'users') {
+		$('.header .menu div#menu_' + keys['page'])
+			.addClass('active')
+			.click();
+	} else {
+		userTab(keys['page']);
+	}
+}
+
+function getQueryHashKeys() {
+	var a = window.location.hash.substring(1).split('&');
+	if (a == "") return {};
+	var b = {};
+	for (var i = 0; i < a.length; ++i) {
+		var p=a[i].split('=');
+		if (p.length != 2) continue;
+		b[p[0]] = decodeURIComponent(p[1].replace(/\+/g, " "));
+	}
+	return b;
 }
 
 function handleResponse(json) {
@@ -59,14 +78,20 @@ function loadMore() {
 	if (!$table.data('has_more')) { return; }
 	var url = window.location.pathname + 'api.cgi';
 	var params = $table.data('next_params');
+	var hash = {
+		'page'  : $table.attr('id').replace(/^user_/, ''),
+		'sort'  : params['sort'],
+		'order' : params['order']
+	};
+	window.location.hash = $.param(hash);
 	params['start'] = $table.data('next_index');
 	url += '?' + $.param(params);
 	$table.data('loading', true);
 	// TODO display loading message
 	setTimeout(function() {
 		$.getJSON(url)
-			.fail(function() {
-				// TODO handle failure
+			.fail(function(data) {
+				statusbar('failed to load ' + url + ': ' + String(data));
 			})
 			.done(handleResponse);
 	}, 500);
@@ -228,6 +253,7 @@ function userTab(user) {
 	var $div = 
 		$('<div/>')
 			.html(user)
+			.attr('id', 'menu_' + user)
 			.click(function() {
 				tabClickHandler($(this))
 			});
@@ -249,10 +275,16 @@ function tabClickHandler($element) {
 		return $(this).css('display') !== 'none';
 	}).hide().css('display', 'none');
 
-	var params = {
-		'sort' : 'ups',
-		'order' : 'desc'
-	};
+	// Query parameters
+	var params = {};
+	var keys = getQueryHashKeys();
+
+	var defaultSort = 'ups';
+	if ($element.html() === 'users') {
+		defaultSort = 'updated';
+	}
+	params['sort']  = keys['sort']  || defaultSort;
+	params['order'] = keys['order'] || 'desc';
 
 	// Get table/params depending on type of content
 	var $table;
@@ -261,9 +293,10 @@ function tabClickHandler($element) {
 		$table = $('table#posts');
 		params['method'] = 'get_posts';
 		params['count'] = POSTS_PER_REQUEST;
-		window.location.hash = 'posts';
-		if ( $table.find('tr.sort').size() == 0) {
-			addPostSortRow($table);
+		addSortRow($table, ['ups', 'created', 'username']);
+		if ('page' in keys && keys['page'] !== 'posts') {
+			params['sort']  = 'ups';
+			params['order'] = 'desc';
 		}
 	}
 	else if ($element.html() === 'users') {
@@ -271,12 +304,11 @@ function tabClickHandler($element) {
 		$table = $('table#users');
 		params['method'] = 'get_users';
 		params['count']  = USERS_PER_REQUEST;
-		params['sort']   = 'username';
-		params['order']  = 'asc';
-		window.location.hash = 'users';
 		// Insert sort options if needed
-		if ( $table.find('tr.sort').size() == 0) {
-			addUserSortRow($table);
+		addSortRow($table, ['updated', 'username', 'created']);
+		if ('page' in keys && keys['page'] !== 'users') {
+			params['sort']  = 'updated';
+			params['order'] = 'desc';
 		}
 	}
 	else {
@@ -293,20 +325,17 @@ function tabClickHandler($element) {
 		params['user']   = user;
 		params['method'] = 'get_user';
 		params['count']  = POSTS_PER_REQUEST;
-		window.location.hash = 'user=' + user;
-		if ( $table.find('tr.sort').size() == 0) {
-			addPostSortRow($table);
+		addSortRow($table, ['ups', 'created']);
+		if ('page' in keys && keys['page'] !== user) {
+			console.log('defaulting to UPS');
+			params['sort']  = 'ups';
+			params['order'] = 'desc';
 		}
 	}
+
+	$.extend(params, $table.data('next_params'));
+	
 	// Store query parameters in table
-	if ($table.data('next_params') !== undefined) {
-		if ('sort' in $table.data('next_params')) {
-			params['sort'] = $table.data('next_params').sort;
-		}
-		if ('order' in $table.data('next_params')) {
-			params['order'] = $table.data('next_params').order;
-		}
-	}
 	$table.data('next_params', params);
 	$table.data('loading', false);
 	$table.data('has_more', true);
@@ -316,6 +345,13 @@ function tabClickHandler($element) {
 	$table.show(500, function() {
 		scrollHandler();
 	});
+
+	var hash = {
+		'page'  : $element.html(),
+		'sort'  : params['sort'],
+		'order' : params['order']
+	};
+	window.location.hash = $.param(hash);
 }
 
 function setupSearch() {
@@ -483,7 +519,10 @@ function addPostSortRow($table) {
 	$td.append(createSortButton($table, 'order', 'desc'));
 	$table.append($tr);
 }
-function addUserSortRow($table) {
+function addSortRow($table, sorts) {
+	if ( $table.find('tr.sort').size() > 0 ) {
+		return;
+	}
 	$table.find('tr.sort').remove();
 	var $tr = $('<tr/>').addClass('sort');
 	var $td = $('<td/>')
@@ -491,9 +530,9 @@ function addUserSortRow($table) {
 		.addClass('sort')
 		.appendTo($tr)
 		.append( $('<span/>').html('sort by:') );
-	$td.append(createSortButton($table, 'sort', 'username'));
-	$td.append(createSortButton($table, 'sort', 'created'));
-	$td.append(createSortButton($table, 'sort', 'updated'));
+	for (var i in sorts) { // username, created, updated
+		$td.append(createSortButton($table, 'sort', sorts[i]));
+	}
 	$td.append( $('<span/>').html('order by:').css('padding-left', '10px') );
 	$td.append(createSortButton($table, 'order', 'asc'));
 	$td.append(createSortButton($table, 'order', 'desc'));

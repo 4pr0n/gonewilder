@@ -6,7 +6,8 @@ body {
 	margin:  0px;
 	margin-bottom: 20px;
 	height: auto;
-	background: linear-gradient(top, #404, #101);
+	min-height: 200px;
+	background: linear-gradient(#404, #101);
 }
 
 a {
@@ -14,7 +15,7 @@ a {
 	text-decoration: none;
 }
 a:hover {
-	color #fef;
+	color: #fef;
 	text-decoration: underline;
 }
 
