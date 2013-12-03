@@ -143,6 +143,7 @@ class ImageUtils(object):
 		r = ImageUtils.httpy.get(url)
 		urls = []
 		for index, link in enumerate(ImageUtils.httpy.between(r, "<img src='", "'")):
+			if '"' in link: continue
 			if not link.startswith('/'): link = '/%s' % link
 			urls.append('http://www.vidble.com%s' % link.replace('_med.', '.'))
 		return urls
@@ -344,7 +345,8 @@ if __name__ == '__main__':
 	#url = 'https://vine.co/v/h6Htgnj7Z5q'
 	#url = 'http://www.vidble.com/album/CwlMIYqm'
 	#url = 'http://www.vidble.com/ieIvnqJY4v'
-	#print ImageUtils.get_urls(url)
+	url = 'http://vidble.com/album/schhngs4'
+	print ImageUtils.get_urls(url)
 	#ImageUtils.create_thumbnail('test.jpg', 'test_thumb.jpg')
 	#ImageUtils.create_thumbnail('../test.mp4', '../test_thumb.jpg')
 	pass
