@@ -43,7 +43,7 @@ class Gonewild(object):
 	def user_has_gone_wild(self, user):
 		# Look at last 100 submissions
 		try:
-			children = Reddit.get_user('%s/submitted' % user, max_pages=1)
+			children = self.reddit.get_user('%s/submitted' % user, max_pages=1)
 		except Exception:
 			# User is 404
 			return False
@@ -69,13 +69,13 @@ class Gonewild(object):
 		self.logger = open(path.join(user_dir, 'history.log'), 'a')
 		self.db.logger     = self.logger
 		ImageUtils.logger  = self.logger
-		Reddit.logger      = self.logger
+		self.reddit.logger = self.logger
 
 		since_id = self.db.get_last_since_id(user)
 		# Get posts/comments for user
 		self.debug('%s: poll_user: since "%s"' % (user, since_id))
 		try:
-			children = Reddit.get_user(user, since=since_id)
+			children = self.reddit.get_user(user, since=since_id)
 		except Exception, e:
 			if '404: Not Found' in str(e):
 				# User is deleted, mark it as such
@@ -118,12 +118,12 @@ class Gonewild(object):
 	def get_urls(self, child):
 		if type(child) == Post:
 			if child.selftext != None and child.selftext != '':
-				return Reddit.get_links_from_text(child.selftext)
+				return self.reddit.get_links_from_text(child.selftext)
 			elif child.url != None:
 				return [child.url]
 			return []
 		elif type(child) == Comment:
-			return Reddit.get_links_from_text(child.body)
+			return self.reddit.get_links_from_text(child.body)
 		raise Exception('unsupported child type: %s' % child)
 
 	''' Downloads media(s) at url, adds to database. '''
