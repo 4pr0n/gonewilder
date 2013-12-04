@@ -123,7 +123,7 @@ def add_user(keys):
 	if not gonewild.user_has_gone_wild(keys['user']):
 		return {'error':'user "%s" has not recently gone wild' % user}
 	gonewild.db.add_user(user, new=True)
-	return {'error':'user added'}
+	return {'error':'added user "%s"' % user}
 
 
 
@@ -148,7 +148,7 @@ def get_keys(): # Get query keys
 	return keys
 
 def sanitize_user(user): # lower() and strip() non-valid characters from user
-	return ''.join([c if c in 'abcdefghijklmnopqrstuvwxyz1234567890_-' else '' for c in user])
+	return ''.join([c if c.lower() in 'abcdefghijklmnopqrstuvwxyz1234567890_-' else '' for c in user])
 
 
 ########################

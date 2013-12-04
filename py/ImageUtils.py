@@ -236,9 +236,9 @@ class ImageUtils(object):
 	@staticmethod
 	def create_thumbnail(image, saveas):
 		if image.lower().endswith('.mp4') or \
-		   image.lower().endswith('.flv'):
-			ImageUtils.create_video_thumbnail(image, saveas)
-			return
+		   image.lower().endswith('.flv') or \
+			 image.lower().endswith('.wmv'):
+			return ImageUtils.create_video_thumbnail(image, saveas)
 		if path.getsize(image) > ImageUtils.MAXIMUM_THUMBNAIL_SIZE:
 			raise Exception('Image too large: %db %db' % 
 					(path.getsize(image), ImageUtils.MAXIMUM_THUMBNAIL_SIZE))
@@ -256,6 +256,7 @@ class ImageUtils(object):
 		if im.mode != 'RGB': im = im.convert('RGB')
 		im.thumbnail( (200,200), Image.ANTIALIAS)
 		im.save(saveas, 'JPEG')
+		return saveas
 
 	''' 
 		Create thumbnail for video file using ffmpeg.
@@ -263,6 +264,10 @@ class ImageUtils(object):
 	'''
 	@staticmethod
 	def create_video_thumbnail(video, saveas):
+		if saveas.lower().endswith('.mp4') or \
+			 saveas.lower().endswith('.flv') or \
+			 saveas.lower().endswith('.wmv'):
+			saveas = '%s.png' % saveas[:saveas.rfind('.')]
 		overlay = path.join(ImageUtils.get_root(), 'images', 'play_overlay.png')
 		ffmpeg = '/usr/bin/ffmpeg'
 		if not path.exists(ffmpeg):
@@ -283,6 +288,7 @@ class ImageUtils(object):
 			(status, output) = getstatusoutput(cmd)
 		except:
 			raise Exception('failed to generate thumbnail using ffmpeg: %s' % output)
+		return saveas
 
 	'''
 		Get width/height of image or video

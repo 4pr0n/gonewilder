@@ -193,7 +193,7 @@ class Gonewild(object):
 			# Create thumbnail
 			savethumbas = path.join(working_dir, 'thumbs', fname)
 			try:
-				ImageUtils.create_thumbnail(saveas, savethumbas)
+				savethumbas = ImageUtils.create_thumbnail(saveas, savethumbas)
 			except Exception, e:
 				savethumbas = path.join(ImageUtils.get_root(), 'images', 'nothumb.png')
 				self.debug('%s: process_url: failed to create thumb #%d: %s, using default' % (child.author, media_index + 1, str(e)))
