@@ -10,6 +10,8 @@ from DB      import DB
 from Reddit  import Reddit
 from sys     import exit, stdout
 from urllib2 import HTTPError
+from os      import remove as osremove
+from ImageUtils import ImageUtils
 
 db = DB()
 reddit = Reddit()
@@ -45,18 +47,21 @@ def backfill_users():
 	
 	cur.close()
 
-def backfill_posts():
+def backfill_posts(legacy=True):
 
 	(username, password) = db.get_credentials('reddit')
 	reddit.login(username, password)
 
+	where = ''
+	if legacy:
+		where = 'where legacy = 1'
 	cur = db.conn.cursor()
 	query = '''
 		select id, userid, title, selftext, url, subreddit, over_18, created, legacy, permalink, ups, downs
 			from posts
-			where legacy = 1
+			%s
 			order by id
-	'''
+	''' % where
 	total = 0
 	ids_to_fetch = []
 	# Store existing values in dict
@@ -195,6 +200,7 @@ def backfill_comments():
 						id = ?
 			'''
 			cur.execute(query, (postid, subreddit, text, created, permalink, legacy, ups, downs, commentid) )
+			db.commit()
 	cur.close()
 
 
@@ -220,7 +226,46 @@ def backfill_last_since():
 		print user,since
 		db.set_last_since_id(user, since)
 
+def backfill_videos():
+	query = '''
+		select id, path, thumb
+			from images
+			where type = 'video'
+				and
+				(
+					thumb like '%.mp4'
+				or
+					thumb like '%.flv'
+				or
+					thumb like '%.wmv'
+				)
+	'''
+	cur = db.conn.cursor()
+	for imgid, image, oldthumb in cur.execute(query).fetchall():
+		saveas = oldthumb
+		saveas = '%s.png' % saveas[:saveas.rfind('.')]
+		try:
+			newthumb = ImageUtils.create_thumbnail(image, saveas)
+		except Exception, e:
+			print 'ERROR: %s' % str(e)
+			continue
+		print 'replacing %s with %s' % (oldthumb, newthumb)
+		q = '''
+			update images
+				set
+					thumb = ?
+				where
+					id = ?
+		'''
+		cur.execute(q, (newthumb, imgid))
+		db.commit()
+		print 'removing %s...' % oldthumb,
+		osremove(oldthumb)
+		print 'removed'
+	cur.close()
+
 if __name__ == '__main__':
 	#backfill_users()
 	#backfill_posts()
-	backfill_last_since()
+	#backfill_last_since()
+	backfill_videos()
