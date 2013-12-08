@@ -63,6 +63,15 @@ class ImageUtils(object):
 		elif 'vidble.com/' in url:
 			# vidble
 			return ImageUtils.get_urls_vidble(url)
+		elif 'soundcloud.com/' in url or 'snd.sc/' in url:
+			# soundcloud
+			return ImageUtils.get_urls_soundcloud(url)
+		elif 'soundgasm.net/' in url:
+			# soundgasm
+			return ImageUtils.get_urls_soundgasm(url)
+		elif 'chirb.it/' in url or 'chirbit.com' in url:
+			# chirbit
+			return ImageUtils.get_urls_chirbit(url)
 		else:
 			raise Exception('domain not supported; %s' % url)
 	
@@ -114,7 +123,7 @@ class ImageUtils(object):
 	# TUMBLR
 	@staticmethod
 	def get_urls_tumblr(url):
-		ImageUtils.debug('tumbmlr: getting %s' % url)
+		ImageUtils.debug('tumblr: getting %s' % url)
 		r = ImageUtils.httpy.get(url)
 		if not 'source src=\\x22' in r:
 			raise Exception('no src= found at %s' % url)
@@ -146,7 +155,50 @@ class ImageUtils(object):
 			if '"' in link: continue
 			if not link.startswith('/'): link = '/%s' % link
 			urls.append('http://www.vidble.com%s' % link.replace('_med.', '.'))
-		return urls
+		return ('image', None, urls)
+
+	################
+	# SOUNDCLOUD
+	@staticmethod
+	def get_urls_soundcloud(url):
+		ImageUtils.debug('soundcloud: getting %s' % url)
+		from DB   import DB
+		from json import loads
+		db = DB()
+		(client_id, secret_id) = db.get_credentials('soundcloud')
+		url = 'http://api.soundcloud.com/resolve.json?url=%s&client_id=%s' % (url, client_id)
+		r = ImageUtils.httpy.get(url)
+		json = None
+		try:
+			json = loads(r)
+			if 'download_url' in json:
+				download = '%s&client_id=%s' % (json['download_url'], client_id)
+				return ('audio', None, [download])
+		except Exception, e:
+			raise Exception('unable to parse json')
+		return []
+
+	################
+	# SOUNDGASM
+	@staticmethod
+	def get_urls_soundgasm(url):
+		ImageUtils.debug('soundgasm: getting %s' % url)
+		r = ImageUtils.httpy.get(url)
+		urls = []
+		for link in ImageUtils.httpy.between(r, 'm4a: "', '"'):
+			urls.append(link)
+		return ('audio', None, urls)
+
+	################
+	# CHIRBIT
+	@staticmethod
+	def get_urls_chirbit(url):
+		ImageUtils.debug('chirbit: getting %s' % url)
+		r = ImageUtils.httpy.get(url)
+		urls = []
+		for link in ImageUtils.httpy.between(r, 'setFile", "', '"'):
+			urls.append(link)
+		return ('audio', None, urls)
 
 	################
 	# IMGUR
@@ -351,7 +403,10 @@ if __name__ == '__main__':
 	#url = 'https://vine.co/v/h6Htgnj7Z5q'
 	#url = 'http://www.vidble.com/album/CwlMIYqm'
 	#url = 'http://www.vidble.com/ieIvnqJY4v'
-	url = 'http://vidble.com/album/schhngs4'
+	#url = 'http://vidble.com/album/schhngs4'
+	#url = 'http://snd.sc/1d2RCEv'
+	#url = 'http://soundgasm.net/u/sexuallyspecific/F4M-A-week-of-retribution-TD-Challenge-Part-7-The-Finale'
+	url = 'http://chirb.it/5vyK6D'
 	print ImageUtils.get_urls(url)
 	#ImageUtils.create_thumbnail('test.jpg', 'test_thumb.jpg')
 	#ImageUtils.create_thumbnail('../test.mp4', '../test_thumb.jpg')
