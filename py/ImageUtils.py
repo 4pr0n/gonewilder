@@ -403,10 +403,11 @@ if __name__ == '__main__':
 	#url = 'https://vine.co/v/h6Htgnj7Z5q'
 	#url = 'http://www.vidble.com/album/CwlMIYqm'
 	#url = 'http://www.vidble.com/ieIvnqJY4v'
+	url = 'http://vidble.com/album/pXpkBBpD'
 	#url = 'http://vidble.com/album/schhngs4'
 	#url = 'http://snd.sc/1d2RCEv'
 	#url = 'http://soundgasm.net/u/sexuallyspecific/F4M-A-week-of-retribution-TD-Challenge-Part-7-The-Finale'
-	url = 'http://chirb.it/5vyK6D'
+	#url = 'http://chirb.it/5vyK6D'
 	print ImageUtils.get_urls(url)
 	#ImageUtils.create_thumbnail('test.jpg', 'test_thumb.jpg')
 	#ImageUtils.create_thumbnail('../test.mp4', '../test_thumb.jpg')
