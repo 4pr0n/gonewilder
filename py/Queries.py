@@ -431,6 +431,11 @@ class Queries(object):
 		cur.close()
 		return { 'posts' : posts }
 
+	@staticmethod
+	def user_already_added(user):
+		db = DB()
+		return db.user_already_added(user)
+
 if __name__ == '__main__':
 	q = Queries()
 	#print q.get_users('username', 'asc', start=0, count=20)

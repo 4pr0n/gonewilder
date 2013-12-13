@@ -119,6 +119,8 @@ def add_user(keys):
 	user = sanitize_user(keys['user'])
 	if len(user) < 3:
 		return {'error':'invalid username: "%s" -- too short' % user}
+	if Queries.user_already_added(user):
+		return {'error':'user already added'}
 	gonewild = Gonewild()
 	if not gonewild.user_has_gone_wild(keys['user']):
 		return {'error':'user "%s" has not recently gone wild' % user}

@@ -136,10 +136,6 @@ function addUser($table, index, user) {
 }
 
 function addPost($table, index, post) {
-	if (post.images.length == 0) {
-		console.log("No images for post " + post.id);
-		return 0;
-	}
 	if (index != 0 && index % (POST_COLUMNS) == 0) {
 		$('<tr/>').appendTo( $table );
 	}
@@ -149,11 +145,13 @@ function addPost($table, index, post) {
 			postClickHandler($(this), post);
 		});
 
-	// Thumbnail
-	var $img = $('<img/>')
-		.addClass('post')
-		.attr('src', post.images[0].thumb.substr(1))
-		.appendTo($div);
+	if (post.images.length > 0) {
+		// Thumbnail
+		var $img = $('<img/>')
+			.addClass('post')
+			.attr('src', post.images[0].thumb.substr(1))
+			.appendTo($div);
+	}
 
 	$div.append( $('<br/>') );
 	// Author
