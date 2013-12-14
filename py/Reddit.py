@@ -18,7 +18,7 @@ class Child(object):
 	def from_json(self, json):
 		self.id        = json['id'].rjust(6, '0')
 		self.subreddit = json['subreddit']
-		self.created   = json['created']
+		self.created   = int(json['created_utc'])
 		self.author    = json['author']
 		self.ups       = json['ups']
 		self.downs     = json['downs']
