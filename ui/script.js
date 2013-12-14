@@ -49,7 +49,6 @@ function handleResponse(json) {
 }
 
 function handlePosts($table, json) {
-	console.log("json", json);
 	if ($table.attr('id').indexOf('user_') === 0 &&
 			json.post_count !== undefined &&
 			json.image_count !== undefined) {
@@ -167,7 +166,7 @@ function addPost($table, index, post) {
 			postClickHandler($(this), post);
 		});
 
-	if (post.images.length > 0) {
+	if (post.images.length > 0 && post.images[0].thumb !== null) {
 		// Thumbnail
 		var $img = $('<img/>')
 			.addClass('post')
@@ -371,11 +370,12 @@ function tabClickHandler($element) {
 		params['count']  = POSTS_PER_REQUEST;
 		addSortRow($table, ['ups', 'created']);
 		if ('page' in keys && keys['page'] !== user) {
-			console.log('defaulting to UPS');
 			params['sort']  = 'ups';
 			params['order'] = 'desc';
 		}
 	}
+	$('#' + $table.attr('id') + '_sort_' + params['sort']).addClass('sort_active');
+	$('#' + $table.attr('id') + '_order_' + params['order']).addClass('order_active');
 
 	$.extend(params, $table.data('next_params'));
 	
@@ -547,22 +547,6 @@ function statusbar(text, timeout) {
 			});
 }
 
-function addPostSortRow($table) {
-	$table.find('tr.sort').remove();
-	var $tr = $('<tr/>').addClass('sort');
-	var $td = $('<td/>')
-		.attr('colspan', POST_COLUMNS)
-		.addClass('sort')
-		.appendTo($tr)
-		.append( $('<span/>').html('sort by:') );
-	$td.append(createSortButton($table, 'sort', 'ups'));
-	$td.append(createSortButton($table, 'sort', 'created'));
-	$td.append(createSortButton($table, 'sort', 'username'));
-	$td.append( $('<span/>').html('order by:').css('padding-left', '10px') );
-	$td.append(createSortButton($table, 'order', 'asc'));
-	$td.append(createSortButton($table, 'order', 'desc'));
-	$table.append($tr);
-}
 function addSortRow($table, sorts) {
 	if ( $table.find('tr.sort').size() > 0 ) {
 		return;
@@ -573,23 +557,31 @@ function addSortRow($table, sorts) {
 		.attr('colspan', POST_COLUMNS)
 		.addClass('sort')
 		.appendTo($tr)
-		.append( $('<span/>').html('sort by:') );
+		.append( $('<span/>').html('sort:') );
 	for (var i in sorts) { // username, created, updated
 		$td.append(createSortButton($table, 'sort', sorts[i]));
 	}
-	$td.append( $('<span/>').html('order by:').css('padding-left', '10px') );
-	$td.append(createSortButton($table, 'order', 'asc'));
-	$td.append(createSortButton($table, 'order', 'desc'));
+	$td
+		.append( $('<div/>').css('height', '10px') )
+		.append( $('<span/>').html('order:').css('padding-left', '10px') )
+		.append(createSortButton($table, 'order', 'asc &#9650;', 'asc'))
+		.append(createSortButton($table, 'order', 'desc &#9660;', 'desc'));
 	$table.append($tr);
 }
 
-function createSortButton($table, type, label) {
+function createSortButton($table, type, label, sorttype) {
+	if (sorttype === undefined) {
+		sorttype = label;
+	}
 	return $('<span/>')
 		.addClass('sort')
+		.attr('id', $table.attr('id') + '_' + type + '_' + sorttype)
 		.html(label)
 		.click(function() {
 			// Set params
-			$table.data('next_params')[type] = label;
+			$('span.sort').removeClass(type + '_active');
+			$(this).addClass(type + '_active');
+			$table.data('next_params')[type] = sorttype;
 			$table.data('next_index', 0);
 			// Remove existing content
 			$table.find('tr:not(.sort)').remove();
@@ -602,7 +594,6 @@ function timestampToHR(tstamp) {
 	var old = new Date(tstamp * 1000),
 			now = new Date(),
 			diff = (now - old) / 1000;
-	console.log('diff', diff);
 	var units = {
 		31536000: 'year',
 		2592000 : 'month',

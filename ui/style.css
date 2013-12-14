@@ -213,8 +213,14 @@ span.sort {
 	color: #fff;
 	background-color: #d0d;
 	border-radius: 10px;
-}
-span.sort:hover {
+	box-shadow: 2px 2px 4px black;
 	cursor: pointer;
+}
+span.sort:hover:not(.sort_active):not(.order_active) {
 	background-color: #f0f;
+}
+span.sort_active, span.order_active {
+	background-color: #f5f;
+	box-shadow: 0px 0px 0px black;
+	cursor: default;
 }
