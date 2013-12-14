@@ -167,6 +167,14 @@ div.userinfo {
 	font-size: 1.0em;
 }
 
+tr.userinfo {
+	background-color: #606;
+}
+td.userinfo {
+	text-align: center;
+	padding: 5px;
+}
+
 div#statusbar {
 	display: none;
 	width: 100%;

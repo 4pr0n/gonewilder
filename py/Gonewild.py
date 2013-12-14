@@ -49,9 +49,9 @@ class Gonewild(object):
 			return False
 		for child in children:
 			if type(child) == Post:
-				if child.subreddit == 'gonewild' or \
-						'gw' in child.subreddit or \
-						'asstastic' in child.subreddit:
+				if 'gonewild'   in child.subreddit.lower() or \
+						'gw'        in child.subreddit.lower() or \
+						'asstastic' in child.subreddit.lower():
 					return True
 		return False
 

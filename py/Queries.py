@@ -297,11 +297,18 @@ class Queries(object):
 				'downs'     : downs,
 				'images'    : images
 			})
-		cur.close()
-		return {
+
+		response = {
 				'user'  : user,
 				'posts' : posts
 			}
+
+		if start == 0:
+			response['post_count']  = db.count('posts',  'userid = ?', [userid])
+			response['image_count'] = db.count('images', 'userid = ?', [userid])
+
+		cur.close()
+		return response
 
 	@staticmethod
 	def get_user_comments(user, sortby='created', orderby='asc', start=0, count=20):
@@ -428,8 +435,11 @@ class Queries(object):
 				'images'    : images,
 				'author'    : author
 			})
+		response = {
+			'posts' : posts
+		}
 		cur.close()
-		return { 'posts' : posts }
+		return response
 
 	@staticmethod
 	def user_already_added(user):

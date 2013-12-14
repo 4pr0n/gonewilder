@@ -35,38 +35,45 @@ function getQueryHashKeys() {
 }
 
 function handleResponse(json) {
+	console.log('json', json);
 	var $table, posts;
 	if ( 'user' in json ) {
-		handlePosts( $('table#user_' + json.user), json.posts );
+		handlePosts( $('table#user_' + json.user), json );
 	}
 	else if ( 'posts' in json ) {
-		handlePosts( $('table#posts'), json.posts );
+		handlePosts( $('table#posts'), json );
 	}
 	else if ( 'users' in json ) {
-		handleUsers( $('table#users'), json.users );
+		handleUsers( $('table#users'), json );
 	}
 	scrollHandler();
 }
 
-function handlePosts($table, posts) {
+function handlePosts($table, json) {
+	if ($table.attr('id').indexOf('user_') === 0 &&
+			$table.find('tr').size() <= 2) {
+		// TODO parse user info from json, add to $table.find('tr.userinfo')
+		$table.find('tr.userinfo')
+			.html('total posts: ' + json.post_count);
+	}
 	$table.append( $('<tr/>') );
 	var index = 0;
-	for (var i in posts) {
-		var post = posts[i];
+	for (var i in json.posts) {
+		var post = json.posts[i];
 		index += addPost($table, index, post);
 	}
-	$table.data('has_more',   (posts.length == POSTS_PER_REQUEST) );
-	$table.data('next_index', $table.data('next_index') + posts.length);
+	$table.data('has_more',   (json.posts.length == POSTS_PER_REQUEST) );
+	$table.data('next_index', $table.data('next_index') + json.posts.length);
 	$table.data('loading',    false);
 }
 
-function handleUsers($table, users) {
+function handleUsers($table, json) {
 	$table.append( $('<tr/>') );
-	for (var i in users) {
-		addUser($table, i, users[i]);
+	for (var i in json.users) {
+		addUser($table, i, json.users[i]);
 	}
-	$table.data('has_more',   (users.length == USERS_PER_REQUEST) );
-	$table.data('next_index', $table.data('next_index') + users.length);
+	$table.data('has_more',   (json.users.length == USERS_PER_REQUEST) );
+	$table.data('next_index', $table.data('next_index') + json.users.length);
 	$table.data('loading',    false);
 }
 
@@ -116,11 +123,17 @@ function addUser($table, index, user) {
 	$div.append(
 			$('<div/>')
 				.html(user.post_n + ' posts')
+				.attr('id', 'post_count')
 				.addClass('userinfo')
 		);
 	$div.append(
 			$('<div/>')
 				.html(user.image_n + ' images')
+				.addClass('userinfo')
+		);
+	$div.append(
+			$('<div/>')
+				.html('last updated ' + timestampToHR(user.updated) + ' ago')
 				.addClass('userinfo')
 		);
 	$div.appendTo($td);
@@ -318,7 +331,14 @@ function tabClickHandler($element) {
 				.attr('id', 'user_' + user)
 				.addClass('posts')
 				.insertAfter( $('table#users') );
-			// TODO insert row for user info (download, get URLs, karma, created, updated, etc)
+			var $tr = $('<tr/>')
+				.addClass('userinfo')
+				.appendTo($table);
+			var $td = $('<td>')
+				.addClass('userinfo')
+				.attr('colspan', POST_COLUMNS)
+				.html('user info here')
+				.appendTo($tr);
 		}
 		params['user']   = user;
 		params['method'] = 'get_user';
@@ -430,7 +450,7 @@ function searchText(text) {
 	url += '&search=user:' + text;
 	$.getJSON(url)
 		.fail(function(data) {
-			// TODO failure handling
+			statusbar('search failed, server error');
 		})
 		.done(function(data) {
 			if (!$('input#search').is(':focus')) {
@@ -552,7 +572,26 @@ function createSortButton($table, type, label) {
 		});
 }
 
-function clearTable($table) {
+function timestampToHR(tstamp) {
+	var old = new Date(tstamp * 1000),
+			now = new Date(),
+			diff = (now - old) / 1000;
+	console.log('diff', diff);
+	var units = {
+		31536000: 'year',
+		2592000 : 'month',
+		86400   : 'day',
+		3600    : 'hour',
+		60      : 'min',
+		1       : 'sec',
+	}
+	for (var unit in units) {
+		if (diff > unit) {
+			var hr = Math.floor(diff / unit);
+			return hr + ' ' + units[unit] + (hr == 1 ? '' : 's');
+		}
+	}
+	return '? sec';
 }
 
 function scrollHandler() {
