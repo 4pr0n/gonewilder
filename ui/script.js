@@ -62,8 +62,14 @@ function handlePosts($table, json) {
 		var updated = date.toLocaleDateString() +
 			//' @ ' + date.toLocaleTimeString() + 
 			' (' + timestampToHR(json.updated) + ')';
+		date = new Date(json.created * 1000);
+		var created = date.toLocaleDateString() +
+			//' @ ' + date.toLocaleTimeString() + 
+			' (' + timestampToHR(json.created) + ')';
 		$tr.find('#updated')
 			.html('updated: ' + updated);
+		$tr.find('#created')
+			.html('created: ' + created);
 	}
 	$table.append( $('<tr/>') );
 	var index = 0;
@@ -142,6 +148,11 @@ function addUser($table, index, user) {
 	$div.append(
 			$('<div/>')
 				.html('last updated ' + timestampToHR(user.updated) + ' ago')
+				.addClass('userinfo')
+		);
+	$div.append(
+			$('<div/>')
+				.html('started ' + timestampToHR(user.created) + ' ago')
 				.addClass('userinfo')
 		);
 	$div.appendTo($td);
@@ -363,6 +374,11 @@ function tabClickHandler($element) {
 				.attr('id', 'updated')
 				.addClass('userinfo')
 				.html('updated:')
+				.appendTo($td);
+			$('<span/>')
+				.attr('id', 'created')
+				.addClass('userinfo')
+				.html('created:')
 				.appendTo($td);
 		}
 		params['user']   = user;

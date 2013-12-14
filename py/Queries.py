@@ -308,6 +308,7 @@ class Queries(object):
 			response['post_count']  = db.count('posts',  'userid = ?', [userid])
 			response['image_count'] = db.count('images', 'userid = ?', [userid])
 			response['updated'] = db.select_one('updated', 'users', 'id = ?', [userid])
+			response['created'] = db.select_one('created', 'users', 'id = ?', [userid])
 
 		cur.close()
 		return response
