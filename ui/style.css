@@ -246,3 +246,9 @@ div.zip {
 	padding: 15px;
 	padding-bottom: 5px;
 }
+
+img.spin_small {
+	padding-left: 5px;
+	width: 20px;
+	height: 20px;
+}

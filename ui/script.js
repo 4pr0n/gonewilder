@@ -464,6 +464,14 @@ function tabClickHandler($element) {
 
 function getZip($button, user, includeVideos) {
 	// TODO show loading msg
+	$button
+		.unbind('click') // So they can't request more than 1 zip
+		.html('zipping...')
+		.append(
+			$('<img/>')
+				.addClass('spin_small')
+				.attr('src', './ui/spinner.gif')
+		);
 	var params = {
 		'method' : 'get_zip',
 		'user' : user,
@@ -490,7 +498,6 @@ function getZip($button, user, includeVideos) {
 				}
 				$button
 					.empty()
-					.unbind('click')
 					.click(function() {
 						window.location.href = data.zip;
 					})
