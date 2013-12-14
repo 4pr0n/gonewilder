@@ -85,6 +85,16 @@ SCHEMA = {
 		'views   integer, \n\t' +
 		'foreign key(userid) references users(id), \n\t' +
 		'foreign key(albumid) references albums(id)\n\t',
+	
+	'zips' :
+		'\n\t' +
+		'zippath text unique, \n\t' +
+		'user   text,    \n\t' +
+		'album  text,    \n\t' +
+		'images integer, \n\t' +
+		'videos integer, \n\t' +
+		'audios integer, \n\t' +
+		'size   integer \n\t',
 
 	'credentials' :
 		'\n\t' +
@@ -154,6 +164,14 @@ class DB:
 		except sqlite3.IntegrityError:
 			cur.close()
 			return -1
+	
+	def delete(self, table, where, values=[]):
+		cur = self.conn.cursor()
+		q = '''
+			delete from %s
+				where %s
+		''' % (table, where)
+		cur.execute(q, values)
 	
 	def get_cursor(self):
 		return self.conn.cursor()

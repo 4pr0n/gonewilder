@@ -30,6 +30,7 @@ def main():
 	elif method == 'get_posts': return get_posts(keys)
 	elif method == 'search':    return search(keys)
 	elif method == 'add_user':  return add_user(keys)
+	elif method == 'get_zip':   return get_zip(keys)
 	else: return {'error':'unexpected method'}
 
 
@@ -128,6 +129,16 @@ def add_user(keys):
 	return {'error':'added user "%s"' % user}
 
 
+def get_zip(keys):
+	user   = keys.get('user')
+	album  = keys.get('album', None)
+	videos = keys.get('include_videos', 'false')
+	include_videos = videos in ['true', 'True']
+	return Queries.get_zip(
+			user,
+			include_videos = include_videos,
+			album = album
+		)
 
 #####################
 # HELPER METHODS

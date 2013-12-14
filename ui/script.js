@@ -52,7 +52,6 @@ function handlePosts($table, json) {
 	if ($table.attr('id').indexOf('user_') === 0 &&
 			json.post_count !== undefined &&
 			json.image_count !== undefined) {
-		// TODO parse user info from json, add to $table.find('tr.userinfo')
 		var $tr = $table.find('tr.userinfo');
 		$tr.find('#post_count')
 			.html('posts: ' + json.post_count);
@@ -350,6 +349,7 @@ function tabClickHandler($element) {
 				.attr('id', 'user_' + user)
 				.addClass('posts')
 				.insertAfter( $('table#users') );
+
 			var $tr = $('<tr/>')
 				.addClass('userinfo')
 				.appendTo($table);
@@ -358,28 +358,76 @@ function tabClickHandler($element) {
 				.attr('colspan', POST_COLUMNS)
 				.html('')
 				.appendTo($tr);
+			var $infotable = $('<table/>')
+				.css('width', '100%')
+				.appendTo($td);
+			var $area = $('<tr/>')
+				.appendTo( $infotable );
 			$('<span/>')
 				.attr('id', 'post_count')
 				.addClass('userinfo')
-				.html('posts:')
-				.appendTo($td);
-			$('<span/>')
-				.attr('id', 'image_count')
-				.addClass('userinfo')
-				.html('images:')
-				.appendTo($td);
-			$('<div/>')
-				.appendTo($td);
-			$('<span/>')
-				.attr('id', 'updated')
-				.addClass('userinfo')
-				.html('updated:')
-				.appendTo($td);
+				.html('posts: xxx')
+				.appendTo(
+					$('<td/>')
+						.css({'text-align': 'right', 'width': '30%'})
+						.appendTo($area)
+					);
 			$('<span/>')
 				.attr('id', 'created')
 				.addClass('userinfo')
-				.html('created:')
-				.appendTo($td);
+				.html('created: xx/xx/xxxx (x ...)')
+				.appendTo(
+					$('<td/>')
+						.css({'text-align': 'left', 'width': '30%'})
+						.appendTo($area)
+					);
+			$area = $('<tr/>')
+				.appendTo( $infotable );
+			$('<span/>')
+				.attr('id', 'image_count')
+				.addClass('userinfo')
+				.html('images: xxx')
+				.appendTo(
+					$('<td/>')
+						.css({'text-align': 'right', 'width': '30%'})
+						.appendTo($area)
+					);
+			$('<span/>')
+				.attr('id', 'updated')
+				.addClass('userinfo')
+				.html('updated: xx/xx/xxxx (x ...)')
+				.appendTo(
+					$('<td/>')
+						.css({'text-align': 'left', 'width': '30%'})
+						.appendTo($area)
+					);
+			// TODO support zips
+			$area = $('<tr/>')
+				.appendTo( $infotable );
+			$('<span/>')
+				.html('download')
+				.addClass('zip')
+				.data('user', user)
+				.click(function() {
+					getZip($(this), $(this).data('user'), false);
+				})
+				.appendTo(
+					$('<td/>')
+						.css({'text-align': 'right', 'width': '30%'})
+						.appendTo($area)
+					);
+			$('<span/>')
+				.html('download (no videos)')
+				.addClass('zip')
+				.data('user', user)
+				.click(function() {
+					getZip($(this), $(this).data('user'), true);
+				})
+				.appendTo(
+					$('<td/>')
+						.css({'text-align': 'left', 'width': '30%'})
+						.appendTo($area)
+					);
 		}
 		params['user']   = user;
 		params['method'] = 'get_user';
@@ -412,6 +460,50 @@ function tabClickHandler($element) {
 		'order' : params['order']
 	};
 	window.location.hash = $.param(hash);
+}
+
+function getZip($button, user, includeVideos) {
+	// TODO show loading msg
+	var params = {
+		'method' : 'get_zip',
+		'user' : user,
+		'include_videos' : includeVideos
+	};
+	var url = window.location.pathname + 'api.cgi?' + $.param(params);
+	$.getJSON(url)
+		.fail(function() {
+			statusbar('failed to get zip');
+		})
+		.done(function(data) {
+			if ('error' in data) {
+				statusbar(data.error);
+				return;
+			}
+			else if ('zip' in data) {
+				var title = ''
+				if (data.images > 0) {
+					title += ' ' + data.images + ' image' + (data.images == 1 ? '' : 's');
+				} else if (data.videos > 0) {
+					title += ' ' + data.videos + ' video' + (data.videos == 1 ? '' : 's');
+				} else if (data.audios > 0) {
+					title += ' ' + data.audios + ' audio' + (data.audios == 1 ? '' : 's');
+				}
+				$button
+					.empty()
+					.unbind('click')
+					.click(function() {
+						window.location.href = data.zip;
+					})
+					.html(data.zip.substring(data.zip.lastIndexOf('/')+1))
+					.hide()
+					.fadeIn(500);
+				//window.open(data.zip);
+			}
+			else {
+				statusbar('unexpected response: ' + JSON.stringify(data));
+			}
+				
+		});
 }
 
 function setupSearch() {
@@ -579,7 +671,7 @@ function addSortRow($table, sorts) {
 	}
 	$td
 		.append( $('<div/>').css('height', '10px') )
-		.append( $('<span/>').html('order:').css('padding-left', '10px') )
+		.append( $('<span/>').html('order:') )
 		.append(createSortButton($table, 'order', 'asc &#9650;', 'asc'))
 		.append(createSortButton($table, 'order', 'desc &#9660;', 'desc'));
 	$table.append($tr);

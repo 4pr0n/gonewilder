@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 from DB import DB
-from time import time as timetime
 
 # Request user
 # Get: Posts and comments
@@ -449,6 +448,96 @@ class Queries(object):
 		db = DB()
 		return db.user_already_added(user)
 
+	@staticmethod
+	def get_zip(user, include_videos=False, album=None):
+		from os      import path, mkdir, walk, remove, sep as ossep
+		from zipfile import ZipFile, ZIP_DEFLATED
+		db = DB()
+		
+		# Verify the user exists
+		if not path.exists(path.join('content', user)):
+			return {'error' : 'user dir "%s" not found' % user}
+		source = path.join('content', user)
+		if album != None:
+			if not path.exists(path.join(source, album)):
+				return {'error' : 'album dir "%s" not found' % album}
+			source = path.join(source, album)
+		if db.count('users', 'username like ?', [user]) == 0:
+			return {'error' : 'user "%s" not in db' % user}
+		if not path.exists('zips'): mkdir('zips')
+
+		zip_path = path.join('zips', user)
+		if album != None: zip_path = '%s-%s' % (zip_path, album)
+		if not include_videos:
+			zip_path = '%s-novids' % zip_path
+		zip_path = '%s.zip' % zip_path
+
+		# Check for existing zip
+		if path.exists(zip_path):
+			zip_time = path.getmtime(zip_path)
+			source_time = db.select_one('max(created)', 'posts', 'userid in (select id from users where username = ?)', [user])
+			if album == None:
+				q = 'user = ? and album is null'
+				v = [user]
+			else:
+				q = 'user = ? and album = ?'
+				v = [user, album]
+			if zip_time > source_time and db.count('zips', q, v) > 0:
+				# Zip is fresher than source album, don't need to re-zip
+				(images, videos, audios) = db.select('images, videos, audios', 'zips', q, v)[0]
+				return {
+					'zip'    : zip_path,
+					'size'   : path.getsize(zip_path),
+					'images' : images,
+					'videos' : videos,
+					'audios' : audios
+				}
+			else:
+				remove(zip_path) # Delete the stale zip
+		
+		# Create new zip
+		zipped_file_ids = []
+		images = videos = audios = 0
+		z = ZipFile(zip_path, "w", ZIP_DEFLATED)
+		for root, dirs, files in walk(source):
+			if root.endswith('/thumbs'): continue
+			for fn in files:
+				if not '.' in fn: continue # We need a file extension
+				# Check for duplicates
+				file_id = fn[fn.rfind('-')+1:]
+				if file_id in zipped_file_ids: continue
+				zipped_file_ids.append(file_id)
+				# Count images/videos/audios
+				ext = fn[fn.rfind('.')+1:].lower()
+				if ext in ['mp4', 'flv', 'wmv']:
+					if not include_videos: continue
+					videos += 1
+				elif ext in ['jpg', 'jpeg', 'png', 'gif']: images += 1
+				elif ext in ['wma', 'm4v', 'mp3', 'wav']:  audios += 1
+				absfn = path.join(root, fn) # content/user/
+				source_minus_one = source[:source.rfind(ossep)]
+				zipfn = absfn[len(source_minus_one):]
+				z.write(absfn, zipfn)
+		z.close()
+
+		if images == 0 and videos == 0 and audios == 0:
+			remove(zip_path)
+			return {'error':'no images, videos, or audio files could be zipped'}
+
+		zip_size = path.getsize(zip_path)
+		# Update DB
+		db.delete('zips', 'zippath = ?', [zip_path])
+		db.insert('zips', (zip_path, user, album, images, videos, audios, zip_size))
+		db.commit()
+		return {
+			'zip'    : zip_path,
+			'size'   : zip_size,
+			'images' : images,
+			'videos' : videos,
+			'audios' : audios
+		}
+				
+
 if __name__ == '__main__':
 	q = Queries()
 	#print q.get_users('username', 'asc', start=0, count=20)
@@ -460,4 +549,5 @@ if __name__ == '__main__':
 	#print q.search('sexy')
 	#print q.get_user_posts('1_more_time')
 	#print q.get_user_comments('1_more_time')
-	print q.get_posts()
+	#print q.get_posts()
+	print q.get_zip('littlesugarbaby')
