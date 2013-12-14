@@ -463,8 +463,9 @@ function tabClickHandler($element) {
 }
 
 function getZip($button, user, includeVideos) {
-	// TODO show loading msg
+	// Change button to show loading
 	$button
+		.addClass('zip-noclick')
 		.unbind('click') // So they can't request more than 1 zip
 		.html('zipping...')
 		.append(
@@ -472,6 +473,7 @@ function getZip($button, user, includeVideos) {
 				.addClass('spin_small')
 				.attr('src', './ui/spinner.gif')
 		);
+	// Construct request
 	var params = {
 		'method' : 'get_zip',
 		'user' : user,
@@ -485,6 +487,7 @@ function getZip($button, user, includeVideos) {
 		.done(function(data) {
 			if ('error' in data) {
 				statusbar(data.error);
+				$button.html('zip failed')
 				return;
 			}
 			else if ('zip' in data) {
@@ -498,6 +501,7 @@ function getZip($button, user, includeVideos) {
 				}
 				$button
 					.empty()
+					.removeClass('zip-noclick')
 					.click(function() {
 						window.location.href = data.zip;
 					})
@@ -508,6 +512,7 @@ function getZip($button, user, includeVideos) {
 			}
 			else {
 				statusbar('unexpected response: ' + JSON.stringify(data));
+				$button.html('zip failed')
 			}
 				
 		});
