@@ -72,6 +72,9 @@ class ImageUtils(object):
 		elif 'chirb.it/' in url or 'chirbit.com' in url:
 			# chirbit
 			return ImageUtils.get_urls_chirbit(url)
+		elif 'vocaroo.com/' in url:
+			# vocaroo
+			return ImageUtils.get_urls_vocaroo(url)
 		else:
 			raise Exception('domain not supported; %s' % url)
 	
@@ -187,6 +190,18 @@ class ImageUtils(object):
 		urls = []
 		for link in ImageUtils.httpy.between(r, 'm4a: "', '"'):
 			urls.append(link)
+		return ('audio', None, urls)
+
+	################
+	# VOCAROO
+	@staticmethod
+	def get_urls_vocaroo(url):
+		ImageUtils.debug('vocaroo: getting %s' % url)
+		r = ImageUtils.httpy.get(url)
+		urls = []
+		for link in ImageUtils.httpy.between(r, '<source src="', '"'):
+			urls.append('http://vocaroo.com%s' % link)
+			break # Only get the first one
 		return ('audio', None, urls)
 
 	################
@@ -403,11 +418,12 @@ if __name__ == '__main__':
 	#url = 'https://vine.co/v/h6Htgnj7Z5q'
 	#url = 'http://www.vidble.com/album/CwlMIYqm'
 	#url = 'http://www.vidble.com/ieIvnqJY4v'
-	url = 'http://vidble.com/album/pXpkBBpD'
+	#url = 'http://vidble.com/album/pXpkBBpD'
 	#url = 'http://vidble.com/album/schhngs4'
 	#url = 'http://snd.sc/1d2RCEv'
 	#url = 'http://soundgasm.net/u/sexuallyspecific/F4M-A-week-of-retribution-TD-Challenge-Part-7-The-Finale'
 	#url = 'http://chirb.it/5vyK6D'
+	url = 'http://vocaroo.com/i/s0umizubFmH6'
 	print ImageUtils.get_urls(url)
 	#ImageUtils.create_thumbnail('test.jpg', 'test_thumb.jpg')
 	#ImageUtils.create_thumbnail('../test.mp4', '../test_thumb.jpg')
