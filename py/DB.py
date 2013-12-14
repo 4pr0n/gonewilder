@@ -159,27 +159,36 @@ class DB:
 		return self.conn.cursor()
 	
 	def count(self, table, where, values=[]):
+		return self.select_one('count(*)', table, where, values=values)
+	
+	def select(self, what, table, where='', values=[]):
 		cur = self.conn.cursor()
 		query = '''
-			select count(*)
+			select %s
 				from %s
-				where %s
-		''' % (table, where)
-		result = cur.execute(query, values).fetchone()
-		cur.close()
-		return result[0]
-	
-	def select(self, what, table, where=''):
-		cur = self.conn.cursor()
-		query_string = '''SELECT %s FROM %s''' % (what, table)
+		''' % (what, table)
 		if where != '':
-			query_string += ''' WHERE %s''' % (where)
-		cur.execute(query_string)
+			query += 'where %s' % (where)
+		cur.execute(query, values)
 		results = []
 		for result in cur:
 			results.append(result)
 		cur.close()
 		return results
+
+	def select_one(self, what, table, where='', values=[]):
+		cur = self.conn.cursor()
+		if where != '':
+			where = 'where %s' % where
+		query = '''
+			select %s
+				from %s
+				%s
+		''' % (what, table, where)
+		execur = cur.execute(query, values)
+		one = execur.fetchone()
+		cur.close()
+		return one[0]
 	
 	def execute(self, statement):
 		cur = self.conn.cursor()

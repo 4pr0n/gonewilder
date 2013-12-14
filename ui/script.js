@@ -35,7 +35,6 @@ function getQueryHashKeys() {
 }
 
 function handleResponse(json) {
-	console.log('json', json);
 	var $table, posts;
 	if ( 'user' in json ) {
 		handlePosts( $('table#user_' + json.user), json );
@@ -50,11 +49,22 @@ function handleResponse(json) {
 }
 
 function handlePosts($table, json) {
+	console.log("json", json);
 	if ($table.attr('id').indexOf('user_') === 0 &&
-			$table.find('tr').size() <= 2) {
+			json.post_count !== undefined &&
+			json.image_count !== undefined) {
 		// TODO parse user info from json, add to $table.find('tr.userinfo')
-		$table.find('tr.userinfo')
-			.html('total posts: ' + json.post_count);
+		var $tr = $table.find('tr.userinfo');
+		$tr.find('#post_count')
+			.html('posts: ' + json.post_count);
+		$tr.find('#image_count')
+			.html('images: ' + json.image_count);
+		var date = new Date(json.updated * 1000);
+		var updated = date.toLocaleDateString() +
+			//' @ ' + date.toLocaleTimeString() + 
+			' (' + timestampToHR(json.updated) + ')';
+		$tr.find('#updated')
+			.html('updated: ' + updated);
 	}
 	$table.append( $('<tr/>') );
 	var index = 0;
@@ -123,7 +133,6 @@ function addUser($table, index, user) {
 	$div.append(
 			$('<div/>')
 				.html(user.post_n + ' posts')
-				.attr('id', 'post_count')
 				.addClass('userinfo')
 		);
 	$div.append(
@@ -337,8 +346,25 @@ function tabClickHandler($element) {
 			var $td = $('<td>')
 				.addClass('userinfo')
 				.attr('colspan', POST_COLUMNS)
-				.html('user info here')
+				.html('')
 				.appendTo($tr);
+			$('<span/>')
+				.attr('id', 'post_count')
+				.addClass('userinfo')
+				.html('posts:')
+				.appendTo($td);
+			$('<span/>')
+				.attr('id', 'image_count')
+				.addClass('userinfo')
+				.html('images:')
+				.appendTo($td);
+			$('<div/>')
+				.appendTo($td);
+			$('<span/>')
+				.attr('id', 'updated')
+				.addClass('userinfo')
+				.html('updated:')
+				.appendTo($td);
 		}
 		params['user']   = user;
 		params['method'] = 'get_user';
