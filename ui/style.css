@@ -260,3 +260,17 @@ img.spin_big {
 	width: 200px;
 	height: 200px;
 }
+
+a.post-title {
+	font-weight: bold;
+	text-decoration: none;
+}
+a.post-title:hover {
+	text-decoration: underline;
+}
+a.post-url {
+	text-decoration: none;
+}
+a.post-url:hover {
+	text-decoration: underline;
+}

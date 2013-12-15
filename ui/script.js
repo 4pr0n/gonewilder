@@ -232,7 +232,7 @@ function addPost($table, index, post) {
 				$imgcount
 					.css({
 						'position' : 'absolute',
-						'top' : $img.offset().top + $img.height(),
+						'top' : $img.offset().top + $img.height() - $imgcount.height(),
 						'left' : $img.position().left + ($img.width() / 2) - ($imgcount.width() / 2),
 						'background-color' : '#909',
 						'opacity': 0.8,
@@ -262,7 +262,7 @@ function addPost($table, index, post) {
 }
 
 function postClickHandler($td, post) {
-	// Select
+	// Mark post as selected
 	if ($td.hasClass('selected')) {
 		// Selected post was clicked
 		$('td.selected').removeClass('selected');
@@ -286,7 +286,26 @@ function postClickHandler($td, post) {
 		.addClass('expanded')
 		.attr('colspan', POST_COLUMNS)
 		.remove('img')
-		.appendTo($etr);
+		.appendTo($etr)
+		.hide()
+		.fadeIn(500);
+	var $infodiv = $('<div/>')
+		.appendTo($etd);
+	if (post.permalink !== undefined) {
+		$('<a/>')
+			.addClass('post-title')
+			.attr('href', post.permalink)
+			.attr('target', '_BLANK_' + post.id)
+			.html(post.title)
+			.appendTo($infodiv);
+	}
+	if (post.url !== undefined && post.url !== null) {
+		$('<a/>')
+			.addClass('post-url')
+			.attr('href', post.url)
+			.html(post.url)
+			.appendTo($infodiv);
+	}
 	var $countdiv = $('<div/>')
 		.attr('id', 'expandcount')
 		.html('1 of ' + post.images.length)
@@ -298,8 +317,8 @@ function postClickHandler($td, post) {
 	// Image
 	var width = post.images[0].width,
 			height = post.images[0].height
-			maxw = $(document).innerWidth() * 0.95,
-			maxh = $(document).innerHeight() - $td.height() - 100,
+			maxw = screen.width * 0.95,
+			maxh = screen.height - 400,
 			ratio = 1.0;
 	if (maxw / width < ratio) {
 		ratio = maxw / width;
@@ -325,9 +344,26 @@ function postClickHandler($td, post) {
 			var index = $(this).data('index');
 			index += 1;
 			if (index >= images.length) index = 0;
+			var width = images[index].width,
+					height = images[index].height
+					maxw = screen.width * 0.95,
+					maxh = screen.height - $td.height() - 100,
+					ratio = 1.0;
+			if (maxw / width < ratio) {
+				ratio = maxw / width;
+			}
+			if (maxh / height < ratio) {
+				ratio = maxh / height;
+			}
+			width *= ratio;
+			height *= ratio;
 			$(this)
 				.attr('src', images[index].path.substr(1))
-				.data('index', index);
+				.data('index', index)
+				.css({
+					'width': width,
+					'height': height
+				});
 			$('#expandcount').html((index + 1) + ' of ' + images.length);
 		})
 		.hide()
