@@ -49,6 +49,11 @@ function handleResponse(json) {
 }
 
 function handlePosts($table, json) {
+	$table.find('tr.loading td img')
+		.slideUp(500, function() {
+			$table.find('tr.loading tr').remove()
+		});
+
 	if ($table.attr('id').indexOf('user_') === 0 &&
 			json.post_count !== undefined &&
 			json.image_count !== undefined) {
@@ -82,6 +87,10 @@ function handlePosts($table, json) {
 }
 
 function handleUsers($table, json) {
+	$table.find('tr.loading td img')
+		.slideUp(500, function() {
+			$table.find('tr.loading tr').remove()
+		});
 	$table.append( $('<tr/>') );
 	for (var i in json.users) {
 		addUser($table, i, json.users[i]);
@@ -93,7 +102,7 @@ function handleUsers($table, json) {
 
 function loadMore() {
 	var $table = $('table').filter(function() {
-		return $(this).css('display') !== 'none';
+		return $(this).css('display') !== 'none' && $(this).attr('class') === 'posts';
 	});
 	if ( $table.data('loading'))  { return; }
 	if (!$table.data('has_more')) { return; }
@@ -108,7 +117,18 @@ function loadMore() {
 	params['start'] = $table.data('next_index');
 	url += '?' + $.param(params);
 	$table.data('loading', true);
-	// TODO display loading message
+	var $tr = $('<tr/>')
+		.addClass('loading')
+		.appendTo($table);
+	var $td = $('<td/>')
+		.addClass('loading')
+		.attr('colspan', POST_COLUMNS)
+		.append(
+			$('<img/>')
+				.attr('src', './ui/spinner.gif')
+				.addClass('spin_big')
+		)
+		.appendTo($tr);
 	setTimeout(function() {
 		$.getJSON(url)
 			.fail(function(data) {
@@ -401,7 +421,6 @@ function tabClickHandler($element) {
 						.css({'text-align': 'left', 'width': '30%'})
 						.appendTo($area)
 					);
-			// TODO support zips
 			$area = $('<tr/>')
 				.appendTo( $infotable );
 			$('<span/>')

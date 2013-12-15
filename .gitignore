@@ -5,3 +5,8 @@
 *.jpg
 *.mp4
 /content/
+/users/
+history.log
+database.db*
+TODO
+/zips/

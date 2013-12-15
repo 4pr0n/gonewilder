@@ -252,3 +252,11 @@ img.spin_small {
 	width: 20px;
 	height: 20px;
 }
+td.loading {
+	text-align: center;
+	width: 100%;
+}
+img.spin_big {
+	width: 200px;
+	height: 200px;
+}
