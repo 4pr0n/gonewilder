@@ -262,9 +262,8 @@ class Queries(object):
 		db = DB()
 		cur = db.conn.cursor()
 		execur = cur.execute(query, [user])
-		results = execur.fetchall()
 		posts = []
-		for (postid, title, url, selftext, subreddit, created, permalink, ups, downs) in results:
+		for (postid, title, url, selftext, subreddit, created, permalink, ups, downs) in execur.fetchall():
 			images = []
 			query = '''
 				select
