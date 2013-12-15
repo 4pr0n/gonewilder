@@ -194,44 +194,70 @@ function addPost($table, index, post) {
 		.addClass('post')
 		.click(function() {
 			postClickHandler($(this), post);
-		});
+		})
+		.appendTo( $table.find('tr:last') );
 
 	if (post.images.length > 0 && post.images[0].thumb !== null) {
+		// Imagecount
+		var $imgcount = $('<span/>')
+			.addClass('info')
+			.css({
+				'position': 'absolute',
+			})
+			.html(post.images.length + ' image' + (post.images.length == 1 ? '' : 's'))
+			.hide()
+			.appendTo($div);
+		// Permalink
+		$imgcount.append( $('<span/>').html(' | ') );
+		var $permalink = $('<a/>')
+			.addClass('info')
+			.attr('href', post.permalink)
+			.attr('target', '_BLANK' + post.id)
+			.click(function(e) {
+				e.stopPropagation();
+			})
+			.html('post')
+			.appendTo($imgcount);
 		// Thumbnail
 		var $img = $('<img/>')
 			.addClass('post')
 			.attr('src', post.images[0].thumb.substr(1))
 			.appendTo($div);
+		if (post.images.length > 1) {
+			var d = Math.max(post.images.length / 2, 6);
+			$img.css('box-shadow', d + 'px ' + d + 'px 1px rgba(0, 0, 0, 0.5)');
+		}
+		$div
+			.hover(function() {
+				$imgcount
+					.css({
+						'position' : 'absolute',
+						'top' : $img.offset().top + $img.height(),
+						'left' : $img.position().left + ($img.width() / 2) - ($imgcount.width() / 2),
+						'background-color' : '#909',
+						'opacity': 0.8,
+						'padding': '3px'
+					})
+					.stop().fadeIn(500);
+			}, function() {
+				$imgcount.stop().fadeOut(500);
+			});
 	}
 
 	$div.append( $('<br/>') );
 	// Author
-	$('<a/>')
-		.addClass('author')
-		.attr('href', '#user=' + post.author)
-		.html(post.author)
-		.click(function(e) {
-			e.stopPropagation();
-			userTab(post.author);
-		})
-		.appendTo($div);
-	$div.append( $('<br/>') );
-	// Title
-	$('<span/>')
-		.addClass('info')
-		.html(post.images.length + ' image' + (post.images.length == 1 ? '' : 's') + ' | ')
-		.appendTo($div);
-	$('<a/>')
-		.addClass('info')
-		.attr('href', post.permalink)
-		.attr('target', '_BLANK' + post.id)
-		.click(function(e) {
-			e.stopPropagation();
-		})
-		.html('post')
-		.appendTo($div);
-	$table.find('tr:last')
-		.append($div);
+	if (post.author !== undefined) {
+		$('<a/>')
+			.addClass('author')
+			.attr('href', '#user=' + post.author)
+			.html(post.author)
+			.click(function(e) {
+				e.stopPropagation();
+				userTab(post.author);
+			})
+			.appendTo($div);
+		$div.append( $('<br/>') );
+	}
 	return 1;
 }
 
@@ -240,6 +266,7 @@ function postClickHandler($td, post) {
 	if ($td.hasClass('selected')) {
 		// Selected post was clicked
 		$('td.selected').removeClass('selected');
+		$('#expandrow td img').stop().slideUp(500);
 		$('#expandrow').stop().hide(500, function() { $(this).remove() });
 		return;
 	}
@@ -269,14 +296,27 @@ function postClickHandler($td, post) {
 		$countdiv.show();
 	}
 	// Image
+	var width = post.images[0].width,
+			height = post.images[0].height
+			maxw = $(document).innerWidth() * 0.95,
+			maxh = $(document).innerHeight() - $td.height() - 100,
+			ratio = 1.0;
+	if (maxw / width < ratio) {
+		ratio = maxw / width;
+	}
+	if (maxh / height < ratio) {
+		ratio = maxh / height;
+	}
+	width *= ratio;
+	height *= ratio;
 	var $img = $('<img/>')
 		.addClass('expanded')
 		.data('images', post.images)
 		.data('index', 0)
 		.attr('src', post.images[0].path.substr(1))
 		.css({
-			'max-width' : ($(document).innerWidth() * 0.95) + 'px',
-			'max-height': ($(document).innerHeight() - $td.height() - 100) + 'px'
+			'width' : width,
+			'height' : height,
 		})
 		.appendTo($etd)
 		.click(function() {
@@ -289,7 +329,9 @@ function postClickHandler($td, post) {
 				.attr('src', images[index].path.substr(1))
 				.data('index', index);
 			$('#expandcount').html((index + 1) + ' of ' + images.length);
-		});
+		})
+		.hide()
+		.slideDown(500);
 	// Scroll
 	$('html,body')
 		.animate({
@@ -481,7 +523,7 @@ function tabClickHandler($element) {
 	window.location.hash = $.param(hash);
 }
 
-function getZip($button, user, includeVideos) {
+function getZip($button, user, includeVideos, album) {
 	// Change button to show loading
 	$button
 		.addClass('zip-noclick')
@@ -524,6 +566,7 @@ function getZip($button, user, includeVideos) {
 					.click(function() {
 						window.location.href = data.zip;
 					})
+					.attr('title', 'size: ' + bytesToHR(data.size) + ', ' + title)
 					.html(data.zip.substring(data.zip.lastIndexOf('/')+1))
 					.hide()
 					.fadeIn(500);
@@ -732,15 +775,15 @@ function createSortButton($table, type, label, sorttype) {
 function timestampToHR(tstamp) {
 	var old = new Date(tstamp * 1000),
 			now = new Date(),
-			diff = (now - old) / 1000;
-	var units = {
-		31536000: 'year',
-		2592000 : 'month',
-		86400   : 'day',
-		3600    : 'hour',
-		60      : 'min',
-		1       : 'sec',
-	}
+			diff = (now - old) / 1000,
+			units = {
+				31536000: 'year',
+				2592000 : 'month',
+				86400   : 'day',
+				3600    : 'hour',
+				60      : 'min',
+				1       : 'sec'
+			};
 	for (var unit in units) {
 		if (diff > unit) {
 			var hr = Math.floor(diff / unit);
@@ -748,6 +791,18 @@ function timestampToHR(tstamp) {
 		}
 	}
 	return '? sec';
+}
+
+function bytesToHR(bytes) {
+	var units = ['g', 'm', 'k', ''];
+	var chunk = 1024 * 1024 * 1024;
+	for (var unit in units) {
+		if (bytes >= chunk) {
+			return (bytes / chunk).toFixed(2) + units[unit] + 'b';
+		}
+		chunk /= 1024;
+	}
+	return '?b';
 }
 
 function scrollHandler() {
