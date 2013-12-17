@@ -31,6 +31,7 @@ def main():
 	elif method == 'search':    return search(keys)
 	elif method == 'add_user':  return add_user(keys)
 	elif method == 'get_zip':   return get_zip(keys)
+	elif method == 'get_rip':   return get_rip(keys)
 	else: return {'error':'unexpected method'}
 
 
@@ -139,6 +140,13 @@ def get_zip(keys):
 			include_videos = include_videos,
 			album = album
 		)
+
+
+def get_rip(keys):
+	if not 'user' in keys:
+		return {'error':'user not entered'}
+	return Queries.get_rip(keys['user'])
+
 
 #####################
 # HELPER METHODS

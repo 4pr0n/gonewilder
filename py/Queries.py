@@ -535,7 +535,62 @@ class Queries(object):
 			'videos' : videos,
 			'audios' : audios
 		}
-				
+
+
+	@staticmethod
+	def get_rip(user):
+		from DB import DB
+		from os import walk, path, mkdir
+		from shutil import copy
+		from subprocess import check_call
+
+		# Get proper user case
+		db = DB()
+		user = db.select_one('username', 'users', 'username like ?', [user])
+		if user == None:
+			return {'error':'user not found in database'}
+
+		# Source of files
+		source = path.join('content', user)
+		if not path.exists(source):
+			return {'error':'user not found at %s' % source}
+		# Destination
+		dest   = path.join('..', 'rip.rarchives.com', 'rips', 'gonewild_%s' % user)
+		already_copied = []
+
+		# Copy files
+		for root, subdirs, files in walk(source):
+			destsub = path.join(dest, root[len(source)+1:])
+			if not path.exists(destsub):
+				mkdir(destsub)
+
+			for fil in files:
+
+				if not 'thumbs' in root:
+					if   '_' in fil: imgid = fil[fil.rfind('_')+1:]
+					elif '-' in fil: imgid = fil[fil.rfind('-')+1:]
+					else: imgid = fil
+					if imgid in already_copied:
+						#Already copied file with this ID
+						continue
+					already_copied.append(imgid)
+
+				fil = path.join(root, fil)
+				saveas = path.join(dest, fil[len(source)+1:])
+				if not path.exists(saveas):
+					copy(fil, saveas)
+					pass
+
+		# Creat zip
+		savezip = '%s.zip' % dest
+		check_call(['zip', '-r', savezip, source]) 
+
+		return {
+			'count' : len(already_copied),
+			'url'   : 'http://rip.rarchives.com/rips/#gonewild_%s' % user,
+			'zip'   : 'http://rip.rarchives.com/rips/gonewild_%s.zip' % user
+		}
+
 
 if __name__ == '__main__':
 	q = Queries()
@@ -549,4 +604,5 @@ if __name__ == '__main__':
 	#print q.get_user_posts('1_more_time')
 	#print q.get_user_comments('1_more_time')
 	#print q.get_posts()
-	print q.get_zip('littlesugarbaby')
+	#print q.get_zip('littlesugarbaby')
+	print q.get_rip('LoveKitten69')
