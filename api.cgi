@@ -182,5 +182,5 @@ if __name__ == '__main__':
 		print dumps(main(), indent=2)
 	except Exception, e:
 		# Return stacktrace
-		print dumps({'error': format_exc()})
+		print dumps({'error': str(format_exc())})
 	print "\n\n"
