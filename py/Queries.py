@@ -542,7 +542,7 @@ class Queries(object):
 		from DB import DB
 		from os import walk, path, mkdir
 		from shutil import copy
-		from subprocess import check_call
+		from subprocess import Popen, PIPE
 
 		# Get proper user case
 		db = DB()
@@ -583,12 +583,15 @@ class Queries(object):
 
 		# Creat zip
 		savezip = '%s.zip' % dest
-		check_call(['zip', '-r', savezip, source]) 
+		pid = Popen(['zip', '-r', '-0', savezip, source], stdout=PIPE) 
+		(stdo, stde) = pid.communicate()
 
 		return {
 			'count' : len(already_copied),
 			'url'   : 'http://rip.rarchives.com/rips/#gonewild_%s' % user,
-			'zip'   : 'http://rip.rarchives.com/rips/gonewild_%s.zip' % user
+			'zip'   : 'http://rip.rarchives.com/rips/gonewild_%s.zip' % user,
+			'stdout' : stdo,
+			'stderr' : stde
 		}
 
 
