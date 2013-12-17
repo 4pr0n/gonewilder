@@ -540,7 +540,7 @@ class Queries(object):
 	@staticmethod
 	def get_rip(user):
 		from DB import DB
-		from os import walk, path, mkdir
+		from os import walk, path, mkdir, remove
 		from shutil import copy
 		from subprocess import Popen, PIPE
 
@@ -557,6 +557,7 @@ class Queries(object):
 		# Destination
 		dest   = path.join('..', 'rip.rarchives.com', 'rips', 'gonewild_%s' % user)
 		already_copied = []
+		new_files = 0
 
 		# Copy files
 		for root, subdirs, files in walk(source):
@@ -578,20 +579,23 @@ class Queries(object):
 				fil = path.join(root, fil)
 				saveas = path.join(dest, fil[len(source)+1:])
 				if not path.exists(saveas):
+					new_files += 1
 					copy(fil, saveas)
 					pass
 
-		# Creat zip
+		# Creat zip if needed
 		savezip = '%s.zip' % dest
-		pid = Popen(['zip', '-r', '-0', savezip, source], stdout=PIPE) 
-		(stdo, stde) = pid.communicate()
+		if path.exists(savezip) and new_files > 0:
+			remove(savezip)
+		if new_files > 0:
+			pid = Popen(['zip', '-r', '-0', savezip, source], stdout=PIPE) 
+			(stdo, stde) = pid.communicate()
 
 		return {
 			'count' : len(already_copied),
 			'url'   : 'http://rip.rarchives.com/rips/#gonewild_%s' % user,
 			'zip'   : 'http://rip.rarchives.com/rips/gonewild_%s.zip' % user,
-			'stdout' : stdo,
-			'stderr' : stde
+			'new_files' : new_files
 		}
 
 
