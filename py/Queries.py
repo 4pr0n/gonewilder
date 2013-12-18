@@ -598,7 +598,7 @@ class Queries(object):
 		return {
 			'count' : len(already_copied),
 			'url'   : 'http://rip.rarchives.com/rips/#gonewild_%s' % user,
-			'zip'   : 'http://rip.rarchives.com/rips/gonewild_%s.zip' % user,
+			'zip'   : 'http://rip.rarchives.com/#gonewild_%s' % user,
 			'new_files' : new_files
 		}
 
