@@ -566,7 +566,8 @@ class Queries(object):
 				mkdir(destsub)
 
 			for fil in files:
-
+				# Avoid copying unnecessary files
+				if '.' in fil and fil[fil.rfind('.')+1:] in ['log', 'txt', 'zip']: continue
 				if not 'thumbs' in root:
 					if   '_' in fil: imgid = fil[fil.rfind('_')+1:]
 					elif '-' in fil: imgid = fil[fil.rfind('-')+1:]
