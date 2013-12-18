@@ -546,7 +546,10 @@ class Queries(object):
 
 		# Get proper user case
 		db = DB()
-		user = db.select_one('username', 'users', 'username like ?', [user])
+		try:
+			user = db.select_one('username', 'users', 'username like ?', [user])
+		except:
+			user = None
 		if user == None:
 			return {'error':'user not found in database'}
 
