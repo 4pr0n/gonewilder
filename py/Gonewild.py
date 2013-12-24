@@ -233,13 +233,20 @@ class Gonewild(object):
 				self.add_top_users() # Add users from /top
 
 			user = users[last_index]
-			self.poll_user(user) # Poll user for content
-			self.db.set_config('last_user', user)
+			try:
+				self.poll_user(user) # Poll user for content
+				self.db.set_config('last_user', user)
+			except Exception, e:
+				self.debug('ininite_loop: poll_user: %s' % str(e))
 	
 	def add_top_users(self):
 		subs = ['gonewild']
 		self.debug('add_top_users: loading top posts for the week from %s' % ','.join(subs))
-		posts = self.reddit.get('http://www.reddit.com/r/%s/top.json?t=week' % '+'.join(subs))
+		try:
+			posts = self.reddit.get('http://www.reddit.com/r/%s/top.json?t=week' % '+'.join(subs))
+		except Exception, e:
+			self.debug('add_top_users: Exception: %s' % str(e))
+			return
 		for post in posts:
 			if post.author == '[deleted]': continue
 			if not self.db.user_already_added(post.author):
