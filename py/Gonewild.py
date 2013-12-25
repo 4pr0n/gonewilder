@@ -16,6 +16,7 @@ class Gonewild(object):
 
 	def __init__(self):
 		# Single file that all output is written to, to track usage
+		self.exit_if_already_started()
 		self.root_log = open(path.join(ImageUtils.get_root(), 'history.log'), 'a')
 		self.logger   = self.root_log # Logger used by helper classes
 		self.db       = DB() # Database instance
@@ -252,6 +253,17 @@ class Gonewild(object):
 			if not self.db.user_already_added(post.author):
 				self.debug('add_top_users: found new user, adding /u/%s' % post.author)
 				self.db.add_user(post.author, new=True)
+
+	def exit_if_already_started(self):
+		from commands import getstatusoutput
+		(status, output) = getstatusoutput('ps aux')
+		running_processes = 0
+		for line in output.split('\n'):
+			if 'python' in line and 'Gonewild.py' in line and not '/bin/sh -c' in line:
+				running_processes += 1
+		if running_processes > 1:
+			exit(0) # Quit silently if the bot is already running
+
 
 if __name__ == '__main__':
 	gw = Gonewild()
