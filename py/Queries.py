@@ -306,7 +306,8 @@ class Queries(object):
 		if start == 0:
 			userid = db.select_one('id', 'users', 'username = ?', [user])
 			response['post_count']  = db.count('posts',  'userid = ?', [userid])
-			response['image_count'] = db.count('images', 'userid = ?', [userid])
+			response['image_count'] = db.count('images', 'userid = ? and type=\'image\'', [userid])
+			response['video_count'] = db.count('images', 'userid = ? and type=\'video\'', [userid])
 			response['updated'] = db.select_one('updated', 'users', 'id = ?', [userid])
 			response['created'] = db.select_one('created', 'users', 'id = ?', [userid])
 
@@ -452,7 +453,7 @@ class Queries(object):
 	@staticmethod
 	def get_zip(user, include_videos=False, album=None):
 		from os      import path, mkdir, walk, remove, sep as ossep
-		from zipfile import ZipFile, ZIP_DEFLATED
+		from zipfile import ZipFile, ZIP_STORED
 		db = DB()
 		
 		# Verify the user exists
@@ -499,7 +500,7 @@ class Queries(object):
 		# Create new zip
 		zipped_file_ids = []
 		images = videos = audios = 0
-		z = ZipFile(zip_path, "w", ZIP_DEFLATED)
+		z = ZipFile(zip_path, "w", ZIP_STORED)
 		for root, dirs, files in walk(source):
 			if root.endswith('/thumbs'): continue
 			for fn in files:

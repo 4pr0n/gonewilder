@@ -62,6 +62,13 @@ function handlePosts($table, json) {
 			.html('posts: ' + json.post_count);
 		$tr.find('#image_count')
 			.html('images: ' + json.image_count);
+		$tr.find('#video_count')
+			.html('videos: ' + json.video_count);
+		if (json.video_count == 0) {
+			$tr.find('#zip_no_videos').hide();
+		} else {
+			$tr.find('#zip_no_videos').show();
+		}
 		var date = new Date(json.updated * 1000);
 		var updated = date.toLocaleDateString() +
 			//' @ ' + date.toLocaleTimeString() + 
@@ -489,6 +496,23 @@ function tabClickHandler($element) {
 			$area = $('<tr/>')
 				.appendTo( $infotable );
 			$('<span/>')
+				.appendTo(
+					$('<td/>')
+						.css({'text-align': 'left', 'width': '30%'})
+						.appendTo($area)
+					);
+			$('<span/>')
+				.attr('id', 'updated')
+				.addClass('userinfo')
+				.html('updated: xx/xx/xxxx (x ...)')
+				.appendTo(
+					$('<td/>')
+						.css({'text-align': 'left', 'width': '30%'})
+						.appendTo($area)
+					);
+			$area = $('<tr/>')
+				.appendTo( $infotable );
+			$('<span/>')
 				.attr('id', 'image_count')
 				.addClass('userinfo')
 				.html('images: xxx')
@@ -498,9 +522,9 @@ function tabClickHandler($element) {
 						.appendTo($area)
 					);
 			$('<span/>')
-				.attr('id', 'updated')
+				.attr('id', 'video_count')
 				.addClass('userinfo')
-				.html('updated: xx/xx/xxxx (x ...)')
+				.html('videos: xxx')
 				.appendTo(
 					$('<td/>')
 						.css({'text-align': 'left', 'width': '30%'})
@@ -521,6 +545,7 @@ function tabClickHandler($element) {
 						.appendTo($area)
 					);
 			$('<span/>')
+				.attr('id', 'zip_no_videos')
 				.html('download (no videos)')
 				.addClass('zip')
 				.data('user', user)
