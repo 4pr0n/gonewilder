@@ -612,6 +612,7 @@ function getZip($button, user, includeVideos, album) {
 	$.getJSON(url)
 		.fail(function() {
 			statusbar('failed to get zip');
+			$button.html('zip failed');
 		})
 		.done(function(data) {
 			if ('error' in data) {
