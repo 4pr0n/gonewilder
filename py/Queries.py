@@ -223,7 +223,8 @@ class Queries(object):
 				})
 
 			post_count  = db.count('posts',  'userid = ?', [userid])
-			image_count = db.count('images', 'userid = ?', [userid])
+			image_count = db.count('images', 'userid = ? and type = \'image\'', [userid])
+			video_count = db.count('images', 'userid = ? and type = \'video\'', [userid])
 			
 			users.append( {
 				'user'    : username,
@@ -231,7 +232,8 @@ class Queries(object):
 				'updated' : updated,
 				'images'  : images,
 				'post_n'  : post_count,
-				'image_n' : image_count
+				'image_n' : image_count,
+				'video_n' : video_count
 			})
 		cur.close()
 		return {

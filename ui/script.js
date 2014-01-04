@@ -164,6 +164,13 @@ function addUser($table, index, user) {
 				.html(user.image_n + ' images')
 				.addClass('userinfo')
 		);
+	if (user.video_n > 0) {
+		$div.append(
+				$('<div/>')
+					.html(user.video_n + ' videos')
+					.addClass('userinfo')
+			);
+	}
 	$div.append(
 			$('<div/>')
 				.html('last updated ' + timestampToHR(user.updated) + ' ago')
@@ -506,7 +513,7 @@ function tabClickHandler($element) {
 				.addClass('zip')
 				.data('user', user)
 				.click(function() {
-					getZip($(this), $(this).data('user'), false);
+					getZip($(this), $(this).data('user'), true);
 				})
 				.appendTo(
 					$('<td/>')
@@ -518,7 +525,7 @@ function tabClickHandler($element) {
 				.addClass('zip')
 				.data('user', user)
 				.click(function() {
-					getZip($(this), $(this).data('user'), true);
+					getZip($(this), $(this).data('user'), false);
 				})
 				.appendTo(
 					$('<td/>')
@@ -658,6 +665,9 @@ function setupSearch() {
 		})
 		.data('timeout', null)
 		.keyup(function(k) {
+			if (k.keyCode != 13) {
+				return;
+			}
 			if (!$('input#search').is(':focus')) {
 				return;
 			}
@@ -690,8 +700,8 @@ function setupSearch() {
 
 function searchText(text) {
 	var url = window.location.pathname + 'api.cgi';
-	url += '?method=search';
-	url += '&search=user:' + text;
+	url += '?method=search_user';
+	url += '&user=' + text;
 	$.getJSON(url)
 		.fail(function(data) {
 			statusbar('search failed, server error');
@@ -713,17 +723,21 @@ function searchText(text) {
 				})
 				.appendTo( $('body') );
 
+			var not_in_users = true;
 			for (var i in data.users) {
+				if (data.users[i].toLowerCase() === text.toLowerCase()) {
+					not_in_users = false;
+				}
 				$('<div/>')
 					.addClass('search_result')
-					.html(data.users[i].user)
+					.html(data.users[i])
 					.click(function(e) {
 						e.stopPropagation()
 						userTab( $(this).html() );
 					})
 					.appendTo($div);
 			}
-			if (data.users.length == 0) {
+			if (not_in_users) {
 				$('<div/>')
 					.addClass('search_result')
 					.click(function() {

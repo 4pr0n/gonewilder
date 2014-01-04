@@ -118,9 +118,26 @@ def search(keys):
 def search_user(keys):
 	if not 'user' in keys:
 		return {'error':'user required'}
+	from py.DB import DB
+	db = DB()
+	cursor = db.conn.cursor()
+	if db.count('users', 'username like ?', [keys['user']]) > 0:
+		return {'users' : [keys['user']]}
+	q = '''
+		select username
+		from users
+		where username like ?
+		limit %d
+		offset %d
+	''' % (keys.get('count', 10), keys.get('start', 0))
+	curexec = cursor.execute(q, ['%%%s%%' % keys['user'] ])
+	result = []
+	for (username,) in curexec:
+		result.append(username)
+	cursor.close()
 	return {
-		'users' : Queries.search_users(['%' + keys['user'] + '%'], [], keys.get('start', 0), keys.get('count', 10))
-	}
+			'users' : result
+		}
 
 '''
 	Add user to list
