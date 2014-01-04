@@ -32,6 +32,7 @@ def main():
 	elif method == 'add_user':  return add_user(keys)
 	elif method == 'get_zip':   return get_zip(keys)
 	elif method == 'get_rip':   return get_rip(keys)
+	elif method == 'search_user': return search_user(keys)
 	else: return {'error':'unexpected method'}
 
 
@@ -111,6 +112,15 @@ def search(keys):
 				count   = int(keys.get('count', 10))
 			)
 		
+'''
+	Search by user
+'''
+def search_user(keys):
+	if not 'user' in keys:
+		return {'error':'user required'}
+	return {
+		'users' : Queries.search_users(['%' + keys['user'] + '%'], [], keys.get('start', 0), keys.get('count', 10))
+	}
 
 '''
 	Add user to list
