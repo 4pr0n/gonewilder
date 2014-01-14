@@ -121,9 +121,12 @@ def search_user(keys):
 	from py.DB import DB
 	db = DB()
 	cursor = db.conn.cursor()
-	user = db.select_one('username', 'users', 'username like ?', [keys['user']])
-	if user != None:
-		return {'users' : [user]}
+	try:
+		user = db.select_one('username', 'users', 'username like ?', [keys['user']])
+		if user != None:
+			return {'users' : [user]}
+	except:
+		pass
 	q = '''
 		select username
 		from users
