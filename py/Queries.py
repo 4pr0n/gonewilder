@@ -223,7 +223,7 @@ class Queries(object):
 				})
 
 			post_count  = db.count('posts',  'userid = ?', [userid])
-			image_count = db.count('images', 'userid = ? and type = \'image\'', [userid])
+			image_count = db.count('images', 'userid = ? and (type = \'image\' or type = \'album\')', [userid])
 			video_count = db.count('images', 'userid = ? and type = \'video\'', [userid])
 			
 			users.append( {
@@ -306,8 +306,8 @@ class Queries(object):
 		if start == 0:
 			userid = db.select_one('id', 'users', 'username = ?', [user])
 			response['post_count']  = db.count('posts',  'userid = ?', [userid])
-			response['image_count'] = db.count('images', 'userid = ? and type=\'image\'', [userid])
-			response['video_count'] = db.count('images', 'userid = ? and type=\'video\'', [userid])
+			response['image_count'] = db.count('images', 'userid = ? and (type = \'image\' or type = \'album\')', [userid])
+			response['video_count'] = db.count('images', 'userid = ? and type =  \'video\'', [userid])
 			response['updated'] = db.select_one('updated', 'users', 'id = ?', [userid])
 			response['created'] = db.select_one('created', 'users', 'id = ?', [userid])
 
