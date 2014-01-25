@@ -261,7 +261,9 @@ class ImageUtils(object):
 			# Might not be highest res, revert to image-page
 			noh = url[:url.rfind('h.')] + url[url.rfind('h.')+1:]
 			meta = ImageUtils.httpy.get_meta(noh)
-			if 'Content-Length' in meta and meta['Content-Length'] == '503':
+			if 'Content-Length' in meta and meta['Content-Length'] == '503' \
+			   or meta['content-type'] == 'unknown' \
+			   or meta['content-type'].startswith('text/html'):
 				ImageUtils.debug('imgur_highest_res: %s -> %s' % (url, url))
 				return url
 			else:
@@ -423,8 +425,11 @@ if __name__ == '__main__':
 	#url = 'http://snd.sc/1d2RCEv'
 	#url = 'http://soundgasm.net/u/sexuallyspecific/F4M-A-week-of-retribution-TD-Challenge-Part-7-The-Finale'
 	#url = 'http://chirb.it/5vyK6D'
-	url = 'http://vocaroo.com/i/s0umizubFmH6'
-	print ImageUtils.get_urls(url)
+	#url = 'http://vocaroo.com/i/s0umizubFmH6'
+	#print ImageUtils.get_urls(url)
 	#ImageUtils.create_thumbnail('test.jpg', 'test_thumb.jpg')
 	#ImageUtils.create_thumbnail('../test.mp4', '../test_thumb.jpg')
+	# Testing imgur highest-res
+	print ImageUtils.get_imgur_highest_res('http://i.imgur.com/30GO67h.jpg')
+	print ImageUtils.get_imgur_highest_res('http://i.imgur.com/30GO67hh.jpg')
 	pass
