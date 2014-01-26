@@ -168,7 +168,7 @@ class Gonewild(object):
 
 		for media_index, media in enumerate(medias):
 			# Construct save path: /user/post[-comment]-index-filename
-			fname = ImageUtils.get_filename_from_url(media)
+			fname = ImageUtils.get_filename_from_url(media, media_type)
 			fname = '%s-%02d-%s' % (base_fname, media_index, fname)
 			saveas = path.join(working_dir, fname)
 
@@ -182,22 +182,27 @@ class Gonewild(object):
 				self.debug('%s: process_url: failed to download #%d: %s, moving on' % (child.author, media_index + 1, str(e)))
 				continue
 
-			# Get media information (width, height, size)
-			try:
-				(width, height) = ImageUtils.get_dimensions(saveas)
-			except Exception, e:
-				# If we cannot process the media file, skip it!
-				self.debug('%s: process_url: #%d %s' % (child.author, media_index + 1, str(e)))
-				continue
-			size = path.getsize(saveas)
+			# Get media information (width, height, thumbsaveas)
+			if media_type == 'audio':
+				# Audio files don't have width/height/thumbnail
+				width = height = 0
+				savethumbas = path.join(ImageUtils.get_root(), 'images', 'audio.png')
+			else:
+				try:
+					(width, height) = ImageUtils.get_dimensions(saveas)
+				except Exception, e:
+					# If we cannot process the media file, skip it!
+					self.debug('%s: process_url: #%d %s' % (child.author, media_index + 1, str(e)))
+					continue
+				# Create thumbnail
+				savethumbas = path.join(working_dir, 'thumbs', fname)
+				try:
+					savethumbas = ImageUtils.create_thumbnail(saveas, savethumbas)
+				except Exception, e:
+					savethumbas = path.join(ImageUtils.get_root(), 'images', 'nothumb.png')
+					self.debug('%s: process_url: failed to create thumb #%d: %s, using default' % (child.author, media_index + 1, str(e)))
 
-			# Create thumbnail
-			savethumbas = path.join(working_dir, 'thumbs', fname)
-			try:
-				savethumbas = ImageUtils.create_thumbnail(saveas, savethumbas)
-			except Exception, e:
-				savethumbas = path.join(ImageUtils.get_root(), 'images', 'nothumb.png')
-				self.debug('%s: process_url: failed to create thumb #%d: %s, using default' % (child.author, media_index + 1, str(e)))
+			size = path.getsize(saveas)
 
 			# Add to DB
 			self.db.add_image(

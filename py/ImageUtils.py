@@ -286,13 +286,18 @@ class ImageUtils(object):
 			http://i.imgur.com/asdf1.jpg -> "asdf1.jpg"
 			amazonaws.com/crazystuff/theimage.jpg?morecrazy=stuff&asdf=123 -> "theimage.jpg"
 			http://2.videobam.com/storage/encoded.mp4/2d1/5113?ss=177 -> "encoded.mp4"
+		Also appends 'mp3' file extension for audio files that end with 'php' (vocaroo)
 	'''
 	@staticmethod
-	def get_filename_from_url(url):
+	def get_filename_from_url(url, media_type='image'):
 		fname = ImageUtils.strip_url(url)
 		fields = fname.split('/')
 		while not '.' in fields[-1]: fields.pop(-1)
-		return fields[-1]
+		filename = fields[-1]
+		if media_type == 'audio':
+			if filename.endswith('.php'):
+				filename = filename[:filename.rfind('.')+1] + 'mp3'
+		return filename
 
 
 	########################
