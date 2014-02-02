@@ -81,6 +81,9 @@ class ImageUtils(object):
 		elif 'gifboom.com/' in url:
 			# imgdoge
 			return ImageUtils.get_urls_gifboom(url)
+		elif 'mediacru.sh/' in url:
+			# imgdoge
+			return ImageUtils.get_urls_mediacrush(url)
 		else:
 			raise Exception('domain not supported; %s' % url)
 	
@@ -234,6 +237,40 @@ class ImageUtils(object):
 			urls.append(link)
 			break # Only get the first one
 		return ('image', None, urls)
+
+	################
+	# MEDIACRUSH
+	@staticmethod
+	def get_urls_mediacrush(url):
+		ImageUtils.debug('mediacrush: getting %s' % url)
+		while url.endswith('/'): url = url[:-1]
+		r = ImageUtils.httpy.get('%s.json' % url)
+		from json import loads
+		json = loads(r)
+		mediatype = album = None
+		urls = []
+		for fil in json.get('files', []):
+			if 'url' in fil:
+				mediatype = fil['type']
+				mediatype = mediatype[:mediatype.find('/')]
+				u = fil['url']
+				if u.startswith('/'):
+					u = 'http://mediacru.sh%s' % u
+				urls.append(u)
+				break
+			elif 'files' in fil:
+				mediatype = 'album'
+				album = url[url.find('cru.sh/')+len('cru.sh/'):]
+				if '/' in album: album = album[:album.find('/')]
+				if '?' in album: album = album[:album.find('?')]
+				if '#' in album: album = album[:album.find('#')]
+				for subfil in fil['files']:
+					u = subfil['url']
+					if u.startswith('/'):
+						u = 'http://mediacru.sh%s' % u
+					urls.append(u)
+					break
+		return (mediatype, album, urls)
 
 	################
 	# CHIRBIT
@@ -463,10 +500,15 @@ if __name__ == '__main__':
 	#url = 'http://chirb.it/5vyK6D'
 	#url = 'http://vocaroo.com/i/s0umizubFmH6'
 	#url = 'http://imgdoge.com/img-52ed7dd198460.html'
-	url = 'http://gifboom.com/x/5c009736'
-	(a,b,urls) = ImageUtils.get_urls(url)
+	#url = 'http://gifboom.com/x/5c009736'
+	url = 'https://mediacru.sh/5dc4cee7fb94' # album
+	#url = 'https://mediacru.sh/d7CsmyozGgB7'
+	(a, b, urls) = ImageUtils.get_urls(url)
 	print a, b, urls
-	ImageUtils.httpy.download(urls[0], 'test.mp4')
+	for i,u in enumerate(urls):
+		print i,u
+	fil = urls[0]
+	ImageUtils.httpy.download(fil, 'test.%s' % fil[fil.rfind('.')+1:])
 	#ImageUtils.create_thumbnail('test.jpg', 'test_thumb.jpg')
 	#ImageUtils.create_thumbnail('../test.mp4', '../test_thumb.jpg')
 	# Testing imgur highest-res
