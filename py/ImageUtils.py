@@ -75,6 +75,9 @@ class ImageUtils(object):
 		elif 'vocaroo.com/' in url:
 			# vocaroo
 			return ImageUtils.get_urls_vocaroo(url)
+		elif 'imgdoge.com/' in url:
+			# imgdoge
+			return ImageUtils.get_urls_imgdoge(url)
 		else:
 			raise Exception('domain not supported; %s' % url)
 	
@@ -203,6 +206,19 @@ class ImageUtils(object):
 			urls.append('http://vocaroo.com%s' % link)
 			break # Only get the first one
 		return ('audio', None, urls)
+
+	################
+	# IMGDOGE
+	@staticmethod
+	def get_urls_imgdoge(url):
+		ImageUtils.debug('imgdoge: getting %s' % url)
+		pdata = { 'imgContinue' : 'Continue to image - click here' }
+		r = ImageUtils.httpy.oldpost(url, postdict=pdata)
+		urls = []
+		for link in ImageUtils.httpy.between(r, "<a href='http://imgdoge.com/upload/big/", "'"):
+			urls.append('http://imgdoge.com/upload/big/%s' % link)
+			break # Only get the first one
+		return ('image', None, urls)
 
 	################
 	# CHIRBIT
@@ -431,10 +447,11 @@ if __name__ == '__main__':
 	#url = 'http://soundgasm.net/u/sexuallyspecific/F4M-A-week-of-retribution-TD-Challenge-Part-7-The-Finale'
 	#url = 'http://chirb.it/5vyK6D'
 	#url = 'http://vocaroo.com/i/s0umizubFmH6'
-	#print ImageUtils.get_urls(url)
+	url = 'http://imgdoge.com/img-52ed7dd198460.html'
+	print ImageUtils.get_urls(url)
 	#ImageUtils.create_thumbnail('test.jpg', 'test_thumb.jpg')
 	#ImageUtils.create_thumbnail('../test.mp4', '../test_thumb.jpg')
 	# Testing imgur highest-res
-	print ImageUtils.get_imgur_highest_res('http://i.imgur.com/30GO67h.jpg')
-	print ImageUtils.get_imgur_highest_res('http://i.imgur.com/30GO67hh.jpg')
+	#print ImageUtils.get_imgur_highest_res('http://i.imgur.com/30GO67h.jpg')
+	#print ImageUtils.get_imgur_highest_res('http://i.imgur.com/30GO67hh.jpg')
 	pass
