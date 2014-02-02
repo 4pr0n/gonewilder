@@ -78,6 +78,9 @@ class ImageUtils(object):
 		elif 'imgdoge.com/' in url:
 			# imgdoge
 			return ImageUtils.get_urls_imgdoge(url)
+		elif 'gifboom.com/' in url:
+			# imgdoge
+			return ImageUtils.get_urls_gifboom(url)
 		else:
 			raise Exception('domain not supported; %s' % url)
 	
@@ -217,6 +220,18 @@ class ImageUtils(object):
 		urls = []
 		for link in ImageUtils.httpy.between(r, "<a href='http://imgdoge.com/upload/big/", "'"):
 			urls.append('http://imgdoge.com/upload/big/%s' % link)
+			break # Only get the first one
+		return ('image', None, urls)
+
+	################
+	# GIFBOOM
+	@staticmethod
+	def get_urls_gifboom(url):
+		ImageUtils.debug('gifboom: getting %s' % url)
+		r = ImageUtils.httpy.get(url)
+		urls = []
+		for link in ImageUtils.httpy.between(r, 'twitter:player:stream" content="', '"'):
+			urls.append(link)
 			break # Only get the first one
 		return ('image', None, urls)
 
@@ -447,8 +462,11 @@ if __name__ == '__main__':
 	#url = 'http://soundgasm.net/u/sexuallyspecific/F4M-A-week-of-retribution-TD-Challenge-Part-7-The-Finale'
 	#url = 'http://chirb.it/5vyK6D'
 	#url = 'http://vocaroo.com/i/s0umizubFmH6'
-	url = 'http://imgdoge.com/img-52ed7dd198460.html'
-	print ImageUtils.get_urls(url)
+	#url = 'http://imgdoge.com/img-52ed7dd198460.html'
+	url = 'http://gifboom.com/x/5c009736'
+	(a,b,urls) = ImageUtils.get_urls(url)
+	print a, b, urls
+	ImageUtils.httpy.download(urls[0], 'test.mp4')
 	#ImageUtils.create_thumbnail('test.jpg', 'test_thumb.jpg')
 	#ImageUtils.create_thumbnail('../test.mp4', '../test_thumb.jpg')
 	# Testing imgur highest-res
