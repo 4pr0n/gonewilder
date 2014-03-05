@@ -113,7 +113,7 @@ function loadMore() {
 	});
 	if ( $table.data('loading'))  { return; }
 	if (!$table.data('has_more')) { return; }
-	var url = window.location.pathname + 'api.cgi';
+	var url = getPathName();
 	var params = $table.data('next_params');
 	var hash = {
 		'page'  : $table.attr('id').replace(/^user_/, ''),
@@ -407,7 +407,7 @@ function userTab(user) {
 
 function tabClickHandler($element) {
 	// Set up URL and parameters for request
-	var url = window.location.pathname + 'api.cgi';
+	var url = getPathName();
 	// Set active tab
 	$('.header .menu div').removeClass('active');
 	$element.addClass('active');
@@ -608,7 +608,7 @@ function getZip($button, user, includeVideos, album) {
 		'user' : user,
 		'include_videos' : includeVideos
 	};
-	var url = window.location.pathname + 'api.cgi?' + $.param(params);
+	var url = getPathName() + '?' + $.param(params);
 	$.getJSON(url)
 		.fail(function() {
 			statusbar('failed to get zip');
@@ -725,7 +725,7 @@ function setupSearch() {
 }
 
 function searchText(text) {
-	var url = window.location.pathname + 'api.cgi';
+	var url = getPathName();
 	url += '?method=search_user';
 	url += '&user=' + text;
 	$.getJSON(url)
@@ -767,7 +767,7 @@ function searchText(text) {
 				$('<div/>')
 					.addClass('search_result')
 					.click(function() {
-						var url = window.location.pathname + 'api.cgi';
+						var url = getPathName();
 						url += '?method=add_user';
 						url += '&user=' + text;
 						$.getJSON(url)
@@ -846,6 +846,12 @@ function createSortButton($table, type, label, sorttype) {
 			// Refresh with new params
 			scrollHandler();
 		});
+}
+
+function getPathName() {
+	var pathname = window.location.pathname;
+	pathname = pathname.substring(0, pathname.lastIndexOf('/') + 1) + 'api.cgi';
+	return pathname;
 }
 
 function timestampToHR(tstamp) {
