@@ -37,7 +37,7 @@ class ImageUtils(object):
 	'''
 	@staticmethod
 	def get_urls(url):
-		if 'imgur.com' in url:
+		if 'imgur.com' in url.lower():
 			return ImageUtils.get_urls_imgur(url)
 		elif '.' in url and url.lower()[url.rfind('.')+1:] in ['jpg', 'jpeg', 'png', 'gif']:
 			# Direct link to image
