@@ -66,9 +66,6 @@ class ImageUtils(object):
 		elif 'soundcloud.com/' in url or 'snd.sc/' in url:
 			# soundcloud
 			return ImageUtils.get_urls_soundcloud(url)
-		elif 'soundgasm.net/' in url:
-			# soundgasm
-			return ImageUtils.get_urls_soundgasm(url)
 		elif 'chirb.it/' in url or 'chirbit.com' in url:
 			# chirbit
 			return ImageUtils.get_urls_chirbit(url)
@@ -88,7 +85,21 @@ class ImageUtils(object):
 			# viddme
 			return ImageUtils.get_urls_viddme(url)
 		else:
-			raise Exception('domain not supported; %s' % url)
+			result = []
+			for extension in ['jpg', 'png', 'gif']:
+				if url.lower().endswith('.' + extension):
+					return ('image', None, [url])
+			for extension in ['wmv', 'mp4']:
+				if url.lower().endswith('.' + extension):
+					return ('video', None, [url])
+			for extension in ['wma', 'mp3', 'm4a']:
+				if url.lower().endswith('.' + extension):
+					return ('audio', None, [url])
+		
+		if 'soundgasm.net/' in url:
+			# soundgasm
+			return ImageUtils.get_urls_soundgasm(url)
+		raise Exception('domain not supported; %s' % url)
 	
 	''' Removes excess fields from URL '''
 	@staticmethod
@@ -510,6 +521,7 @@ class ImageUtils(object):
 		return '.'
 
 if __name__ == '__main__':
+	# Test urls
 	#url = 'http://www.sexykarma.com/gonewild/video/cum-compilation-YIdo9ntfsWo.html'
 	#url = 'http://xhamster.com/movies/1435778/squirting_hard.html'
 	#url = 'http://videobam.com/jcLzr'
@@ -528,8 +540,17 @@ if __name__ == '__main__':
 	#url = 'https://mediacru.sh/5dc4cee7fb94' # album
 	#url = 'https://mediacru.sh/d7CsmyozGgB7'
 	#url = 'http://imgur.com/WZweelk,oB0mtcb,spBaC6r'
-	url = 'https://vidd.me/xpW'
+	#url = 'https://vidd.me/xpW'
+
+	# Direct links
+	#url = 'http://indiestatik.com/wp-content/uploads/2014/03/IMG_0362.jpg'
+	#url = 'https://d1wst0behutosd.cloudfront.net/videos/2296.mp4'
+	url = 'http://soundgasm.net/sounds/8922312168b99ba4c4c9c294e3ced77a49336c6c.m4a'
 	(a, b, urls) = ImageUtils.get_urls(url)
+	if len(urls) == 0:
+		print 'no media urls found for %s' % url
+		from sys import exit
+		exit(1)
 	print a, b, urls
 	for i,u in enumerate(urls):
 		print i,u
