@@ -573,6 +573,26 @@ class DB:
 		(username, password) = cur.execute(q).fetchone()
 		cur.close()
 		return (username, password)
+
+	def set_credentials(self, site, username, password):
+		cur = self.conn.cursor()
+		try:
+			q = 'insert into credentials values (?,?,?)'
+			cur.execute(q, [site, username, password])
+			cur.close()
+			self.commit()
+		except Exception, e:
+			#self.debug('[!] unable to add new credentials: %s' % str(e))
+			q = 'update credentials set username = ?, password = ? where site = ?'
+			try:
+				result = cur.execute(q, [username, password, site])
+				cur.close()
+				self.commit()
+			except Exception, e:
+				self.debug('[!] unable to update existing credentials: %s' % str(e))
+				from traceback import format_exc
+				self.debug('\n%s' % format_exc())
+				raise e
 		
 	def update_user(self, user):
 		cur = self.conn.cursor()
@@ -583,6 +603,26 @@ class DB:
 		''' % int(time.time())
 		cur.execute(query, [user])
 		self.commit()
+
+	def get_excluded_subreddits(self):
+		csv_subs = self.get_config('excluded_subreddits')
+		if csv_subs == None or csv_subs.strip() == '':
+			return []
+		return csv_subs.split(',')
+
+	def add_excluded_subreddit(self, subreddit):
+		subs = self.get_excluded_subreddits()
+		if subreddit.strip().lower() in subs:
+			raise Exception('subreddit "%s" already exists in list of excluded subreddits: %s' % (subreddit.strip().lower(), str(subs)))
+		subs.append(subreddit.strip().lower())
+		self.set_config('excluded_subreddits', ','.join(subs))
+
+	def remove_excluded_subreddit(self, subreddit):
+		subs = self.get_excluded_subreddits()
+		if not subreddit.strip().lower() in subs:
+			raise Exception('subreddit "%s" not found in list of excluded subreddits: %s' % (subreddit.strip().lower(), str(subs)))
+		subs.append(subreddit.strip().lower())
+		self.set_config('excluded_subreddits', ','.join(subs))
 
 	def mark_as_deleted(self, user):
 		cur = self.conn.cursor()

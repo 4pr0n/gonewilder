@@ -2,7 +2,7 @@
 
 from DB         import DB
 from os         import path, mkdir
-from sys        import stderr
+from sys        import stderr, argv
 from Reddit     import Reddit, Child, Post, Comment
 from ImageUtils import ImageUtils
 from time       import strftime, gmtime
@@ -21,15 +21,7 @@ class Gonewild(object):
 		self.logger   = self.root_log # Logger used by helper classes
 		self.db       = DB() # Database instance
 		self.reddit   = Reddit()
-		try:
-			(username, password) = self.db.get_credentials('reddit')
-			try:
-				self.reddit.login(username, password)
-			except Exception, e:
-				self.debug('__init__: failed to login to reddit: %s' % str(e))
-		except Exception, e:
-			self.debug('__init__: failed to get reddit credentials: %s' % str(e))
-
+		
 	def debug(self, text):
 		tstamp = strftime('[%Y-%m-%dT%H:%M:%SZ]', gmtime())
 		text = '%s Gonewild: %s' % (tstamp, text)
@@ -55,6 +47,9 @@ class Gonewild(object):
 						'asstastic' in child.subreddit.lower():
 					return True
 		return False
+
+	def add_excluded_subreddit(self, subreddit):
+		return self.db.add_excluded_subreddit(subreddit)
 
 	'''
 		Gets new posts/comments for user,
@@ -95,7 +90,14 @@ class Gonewild(object):
 		self.debug('%s: poll_user: setting most-recent since_id to "%s"' % (user, children[0].id))
 		self.db.set_last_since_id(user, children[0].id)
 
+		excluded_subs = self.db.get_excluded_subreddits()
 		for child in children:
+			# Ignore certain subreddits
+			if child.subreddit.lower() in excluded_subs:
+				self.debug('''%s: poll_user: Ignoring post/comment in excluded subreddit ("%s")
+    Ignored %s''' % (user, child.subreddit, str(child)))
+				continue
+
 			urls = self.get_urls(child)
 			try:
 				if type(child) == Post:
@@ -269,7 +271,98 @@ class Gonewild(object):
 		if running_processes > 1:
 			exit(0) # Quit silently if the bot is already running
 
+def print_help():
+	print '''
+	gonewilder - https://github.com/4pr0n/gonewilder
+
+	COMMAND-LINE USAGE
+
+	<no arguments>
+		Run in infinite loop, looking for new posts from the users
+		found in the database. Add new-found users to database.
+
+	--help
+	 -h
+		This message
+
+	--add <user>
+	 -a <user>
+		Add user to database
+
+	--exclude <subredit>
+	 -x <subreddit>
+		Exclude subreddit. Ignore any media found in posts/comments to
+		these subreddits.
+
+	--include <subreddit>
+	 -i <subreddit>
+		Include subreddit (that is, unexclude subreddit)
+
+	--reddit <username> <password>
+	 -r <username> <password>
+		Store or update reddit login credentials.
+		Accounts can be modified (in 'preferences') to fetch 100 posts 
+		per query. This makes fetching new content faster.
+
+	--soundcloud <username> <password>
+	 -sc <username> <password>
+		Store or update soundcloud API credentials.
+'''
 
 if __name__ == '__main__':
+	from sys import exit
+	if argv[0].startswith('python'): argv.pop(0)
+	if 'Gonewild.py' in argv[0]:     argv.pop(0)
+
 	gw = Gonewild()
+	
+	try:
+		if len(argv) == 1:
+			if argv[0].lower() in ['--help', '-help', '-h', '--h', '?']:
+				print_help()
+				exit(0)
+
+		if len(argv) == 2:
+			if argv[0].lower() in ['--exclude', '-exclude', '--x', '-x']:
+				gw.add_excluded_subreddit(argv[1])
+				gw.debug('added excluded subreddit: "%s"' % argv[1])
+				exit(0)
+			if argv[0].lower() in ['--include', '-include', '--i', '-i']:
+				gw.db.remove_excluded_subreddit(argv[1])
+				gw.debug('removed excluded subreddit: "%s"' % argv[1])
+				exit(0)
+
+			if argv[0].lower() in ['--add', '-add', '--a', '-a']:
+				user = argv[1]
+				if not gw.db.user_already_added(user):
+					gw.debug('adding new user: /u/%s' % user)
+					gw.db.add_user(user, new=True)
+				else:
+					gw.debug('warning: user already added: /u/%s' % user)
+				exit(0)
+		if len(argv) == 3:
+			if argv[0].lower() in ['--reddit', '-r']:
+				gw.db.set_credentials('reddit', argv[1], argv[2])
+				gw.debug('added/updated reddit login credentials for user "%s"' % argv[1])
+				exit(0)
+			if argv[0].lower() in ['--soundcloud', '-sc']:
+				gw.db.set_credentials('soundcloud', argv[1], argv[2])
+				gw.debug('added/updated soundcloud login credentials for user "%s"' % argv[1])
+				exit(0)
+	except Exception, e:
+		gw.debug('\n[!] Error: %s' % str(e.message))
+		exit(1)
+
+	try:
+		(username, password) = gw.db.get_credentials('reddit')
+		try:
+			gw.reddit.login(username, password)
+		except Exception, e:
+			gw.debug('__init__: failed to login to reddit: %s' % str(e))
+			exit(1)
+	except Exception, e:
+		gw.debug('__init__: failed to get reddit credentials: %s' % str(e))
+		exit(1)
+
 	gw.infinite_loop()
+	
