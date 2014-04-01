@@ -86,9 +86,6 @@ class Gonewild(object):
 			return
 
 		self.debug('%s: poll_user: %d new posts and comments found' % (user, len(children)))
-		# Set lats 'since' to the most-recent post/comment ID
-		self.debug('%s: poll_user: setting most-recent since_id to "%s"' % (user, children[0].id))
-		self.db.set_last_since_id(user, children[0].id)
 
 		excluded_subs = self.db.get_excluded_subreddits()
 		for child in children:
@@ -115,6 +112,11 @@ class Gonewild(object):
 				for url_index, url in enumerate(urls):
 					self.process_url(url, url_index, child)
 		self.debug('%s: poll_user: done' % user)
+
+		# Set last 'since' to the most-recent post/comment ID
+		self.debug('%s: poll_user: setting most-recent since_id to "%s"' % (user, children[0].id))
+		self.db.set_last_since_id(user, children[0].id)
+
 		self.logger.close()
 		self.logger = self.root_log
 
