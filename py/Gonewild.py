@@ -131,7 +131,8 @@ class Gonewild(object):
 
 	''' Downloads media(s) at url, adds to database. '''
 	def process_url(self, url, url_index, child):
-		self.debug('process_url: %s' % url)
+		self.debug('%s: process_url: %s' % (child.author, url))
+
 		userid = self.db.get_user_id(child.author)
 		if type(child) == Post:
 			base_fname = '%s-%d' % (child.id, url_index)
@@ -149,6 +150,14 @@ class Gonewild(object):
 			(media_type, albumname, medias) = ImageUtils.get_urls(url)
 		except Exception, e:
 			self.debug('%s: process_url: unable to get URLs for %s: %s' % (child.author, url, str(e)))
+			if 'domain not supported' in str(e):
+				# Save domain-not-supported URLs to new file
+				user_dir = path.join(ImageUtils.get_root(), 'content', child.author)
+				f = open(path.join(user_dir, 'unsupported.txt'), 'a')
+				f.write(url)
+				f.write('\n')
+				f.flush()
+				f.close()
 			return
 
 		if albumname != None:
@@ -246,6 +255,8 @@ class Gonewild(object):
 				self.db.set_config('last_user', user)
 			except Exception, e:
 				self.debug('ininite_loop: poll_user: %s' % str(e))
+				from traceback import format_exc
+				print format_exc()
 	
 	def add_top_users(self):
 		subs = ['gonewild']
