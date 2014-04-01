@@ -324,16 +324,16 @@ if __name__ == '__main__':
 
 		if len(argv) == 2:
 			if argv[0].lower() in ['--exclude', '-exclude', '--x', '-x']:
-				gw.add_excluded_subreddit(argv[1])
+				gw.add_excluded_subreddit(argv[1].replace('/r/', '').replace('/', ''))
 				gw.debug('added excluded subreddit: "%s"' % argv[1])
 				exit(0)
 			if argv[0].lower() in ['--include', '-include', '--i', '-i']:
-				gw.db.remove_excluded_subreddit(argv[1])
+				gw.db.remove_excluded_subreddit(argv[1].replace('/r/', '').replace('/', ''))
 				gw.debug('removed excluded subreddit: "%s"' % argv[1])
 				exit(0)
 
 			if argv[0].lower() in ['--add', '-add', '--a', '-a']:
-				user = argv[1]
+				user = argv[1].replace('/u/', '').replace('/', '')
 				if not gw.db.user_already_added(user):
 					gw.debug('adding new user: /u/%s' % user)
 					gw.db.add_user(user, new=True)
