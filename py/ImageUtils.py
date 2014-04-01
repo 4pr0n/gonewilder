@@ -79,11 +79,14 @@ class ImageUtils(object):
 			# imgdoge
 			return ImageUtils.get_urls_imgdoge(url)
 		elif 'gifboom.com/' in url:
-			# imgdoge
+			# gifboom
 			return ImageUtils.get_urls_gifboom(url)
 		elif 'mediacru.sh/' in url:
-			# imgdoge
+			# mediacrush
 			return ImageUtils.get_urls_mediacrush(url)
+		elif 'vidd.me/' in url:
+			# viddme
+			return ImageUtils.get_urls_viddme(url)
 		else:
 			raise Exception('domain not supported; %s' % url)
 	
@@ -282,6 +285,18 @@ class ImageUtils(object):
 		for link in ImageUtils.httpy.between(r, 'setFile", "', '"'):
 			urls.append(link)
 		return ('audio', None, urls)
+
+	################
+	# VIDD.ME
+	@staticmethod
+	def get_urls_viddme(url):
+		ImageUtils.debug('vidd.me: getting %s' % url)
+		r = ImageUtils.httpy.get(url)
+		urls = []
+		for link in ImageUtils.httpy.between(r, 'property="og:video:url" content="', '">'):
+			if link.endswith('.mp4'):
+				urls.append(link)
+		return ('video', None, urls)
 
 	################
 	# IMGUR
@@ -512,7 +527,8 @@ if __name__ == '__main__':
 	#url = 'http://gifboom.com/x/5c009736'
 	#url = 'https://mediacru.sh/5dc4cee7fb94' # album
 	#url = 'https://mediacru.sh/d7CsmyozGgB7'
-	url = 'http://imgur.com/WZweelk,oB0mtcb,spBaC6r'
+	#url = 'http://imgur.com/WZweelk,oB0mtcb,spBaC6r'
+	url = 'https://vidd.me/xpW'
 	(a, b, urls) = ImageUtils.get_urls(url)
 	print a, b, urls
 	for i,u in enumerate(urls):
