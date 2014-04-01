@@ -367,6 +367,9 @@ class DB:
 		self.commit()
 		return lastrow
 
+	def album_exists(self, album_url):
+		return self.count('albums', 'url = ?', [album_url])
+
 	'''
 		Add an "image" to the database. Might be a video
 	'''
@@ -621,7 +624,7 @@ class DB:
 		subs = self.get_excluded_subreddits()
 		if not subreddit.strip().lower() in subs:
 			raise Exception('subreddit "%s" not found in list of excluded subreddits: %s' % (subreddit.strip().lower(), str(subs)))
-		subs.append(subreddit.strip().lower())
+		subs.remove(subreddit.strip().lower())
 		self.set_config('excluded_subreddits', ','.join(subs))
 
 	def mark_as_deleted(self, user):

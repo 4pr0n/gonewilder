@@ -95,7 +95,8 @@ class Gonewild(object):
 			# Ignore certain subreddits
 			if child.subreddit.lower() in excluded_subs:
 				self.debug('''%s: poll_user: Ignoring post/comment in excluded subreddit ("%s")
-    Ignored %s''' % (user, child.subreddit, str(child)))
+  Permalink: %s
+    Ignored: %s''' % (user, child.subreddit, child.permalink(), str(child)))
 				continue
 
 			urls = self.get_urls(child)
@@ -162,6 +163,11 @@ class Gonewild(object):
 
 		if albumname != None:
 			# Album!
+			if self.db.album_exists(url):
+				self.debug('''%s: process_url: album %s already exists in database.
+    Permalink: %s
+       Object: %s''' % (child.author, url, child.permalink(), str(child)))
+				return
 			albumname = '%s-%s' % (base_fname, albumname)
 			working_dir = path.join(working_dir, albumname)
 			#self.debug('%s: process_url: adding album to database' % child.author)
