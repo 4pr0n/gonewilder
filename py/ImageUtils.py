@@ -179,6 +179,7 @@ class ImageUtils(object):
 		urls = []
 		for index, link in enumerate(ImageUtils.httpy.between(r, "<img src='", "'")):
 			if '"' in link: continue
+			if 'vidble_logo' in link: continue
 			if not link.startswith('/'): link = '/%s' % link
 			urls.append('http://www.vidble.com%s' % link.replace('_med.', '.'))
 		return ('image', None, urls)
