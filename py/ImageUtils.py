@@ -297,6 +297,15 @@ class ImageUtils(object):
 			if '#' in albumid: albumid = albumid[:albumid.find('#')]
 			if '?' in albumid: albumid = albumid[:albumid.find('?')]
 			return ('album', albumid, ImageUtils.get_imgur_album(url))
+		elif ',' in url:
+			# Comma-separated images
+			imageids = url.split(',')
+			imageids[0] = imageids[0].split('/')[-1]
+			result = []
+			for imageid in imageids:
+				result.append(ImageUtils.get_imgur_highest_res('http://imgur.com/%s' % imageid))
+			return ('image', None, result)
+
 		else:
 			# Image
 			return ('image', None, [ImageUtils.get_imgur_highest_res(url)])
@@ -501,8 +510,9 @@ if __name__ == '__main__':
 	#url = 'http://vocaroo.com/i/s0umizubFmH6'
 	#url = 'http://imgdoge.com/img-52ed7dd198460.html'
 	#url = 'http://gifboom.com/x/5c009736'
-	url = 'https://mediacru.sh/5dc4cee7fb94' # album
+	#url = 'https://mediacru.sh/5dc4cee7fb94' # album
 	#url = 'https://mediacru.sh/d7CsmyozGgB7'
+	url = 'http://imgur.com/WZweelk,oB0mtcb,spBaC6r'
 	(a, b, urls) = ImageUtils.get_urls(url)
 	print a, b, urls
 	for i,u in enumerate(urls):
