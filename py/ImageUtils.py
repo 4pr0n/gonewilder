@@ -547,16 +547,25 @@ if __name__ == '__main__':
 	#url = 'http://indiestatik.com/wp-content/uploads/2014/03/IMG_0362.jpg'
 	#url = 'https://d1wst0behutosd.cloudfront.net/videos/2296.mp4'
 	url = 'http://soundgasm.net/sounds/8922312168b99ba4c4c9c294e3ced77a49336c6c.m4a'
-	(a, b, urls) = ImageUtils.get_urls(url)
-	if len(urls) == 0:
-		print 'no media urls found for %s' % url
-		from sys import exit
-		exit(1)
-	print a, b, urls
-	for i,u in enumerate(urls):
-		print i,u
-	fil = urls[0]
-	ImageUtils.httpy.download(fil, 'test.%s' % fil[fil.rfind('.')+1:])
+
+	urls = [url]
+	test_urls = [
+	'http://vidble.com/album/Mvu8XuF3',
+	'http://www.vidble.com/album/y1oyh3zd',
+	'http://www.vidble.com/album/XdFhKgO5',
+	'http://vidble.com/album/7kG4fX2X',
+	'http://vidble.com/album/BI0l4pkI']
+	ImageUtils.httpy.debugging = True
+	for index,test_url in enumerate(test_urls):
+		(a, b, urls) = ImageUtils.get_urls(test_url)
+		if len(urls) == 0:
+			print index, 'no media urls found for %s' % test_url
+			from sys import exit
+			exit(1)
+		print index, a, b, urls
+		for i,u in enumerate(urls):
+			print index,i,u
+			ImageUtils.httpy.download(u, 'test-%d-%d.%s' % (index, i, u[u.rfind('.')+1:]))
 	#ImageUtils.create_thumbnail('test.jpg', 'test_thumb.jpg')
 	#ImageUtils.create_thumbnail('../test.mp4', '../test_thumb.jpg')
 	# Testing imgur highest-res

@@ -14,6 +14,7 @@ import time
 import urllib2, cookielib, urllib, httplib
 from sys import stderr
 
+DOWNLOAD_TIMEOUT = 10
 class Httpy:
 	"""
 		Class used for communicating with web servers.
@@ -249,23 +250,28 @@ class Httpy:
 			if self.debugging: stderr.write('Httpy.py: Exception: %s: %s\n' % (url, str(e)))
 			return ''
 	
-	def download(self, url, save_as):
-		"""
-			Downloads a file from 'url' and saves the file locally as 'save_as'.
-			Throws exceptions if errors occur
-		"""
-		output = open(save_as, 'wb')
-		
+	def download(self, url, save_as, timeout=DOWNLOAD_TIMEOUT, raise_exception=True, retries=3):
+		""" Downloads file from URL to save_as path. """
+		retry_count = 0
 		headers = {'User-agent' : self.user_agent}
-		req = urllib2.Request(url, headers=headers)
-		file_on_web = self.urlopen(req)
+		outfile = open(save_as, 'w')
 		while True:
-			buf = file_on_web.read(65536)
-			if len(buf) == 0:
-				break
-			output.write(buf)
-		output.close()
-	
+			try:
+				retry_count += 1
+				req = urllib2.Request(url, headers=headers)
+				handle = self.urlopen(req, timeout=timeout)
+				while True:
+					buf = handle.read(65536)
+					if len(buf) == 0: break
+					outfile.write(buf)
+			except Exception, e:
+				if self.debugging: stderr.write('Httpy.py: download(%s): %s\n' % (url, str(e)))
+				if retry_count <= retries:
+					if self.debugging: stderr.write('Httpy.py: download(%s): Retrying (%d remain)\n' % (url, retries - retry_count))
+					continue
+				if raise_exception: raise e
+			break
+		outfile.close()
 	
 	def clear_cookies(self):
 		"""
