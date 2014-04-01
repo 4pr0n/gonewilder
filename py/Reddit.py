@@ -261,6 +261,15 @@ class Reddit(object):
 					more = ' | '
 				Reddit.print_comments(comment.comments, depth=depth+more)
 
+	# POST /api/friend
+	# action	add
+	# container	[my thing id, eg t2_6sxur]
+	# type	friend
+	# name	[friend_username]
+	# id	#friend
+	# uh	[userhash]
+	# renderstyle	html
+
 if __name__ == '__main__':
 	for child in Reddit.get_user('hornysailor80', since='1omszx'): #'ccpj21b'): # ccbzguz
 		if type(child) == Post:
