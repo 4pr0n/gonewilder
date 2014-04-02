@@ -2,7 +2,7 @@
 
 from DB         import DB
 from os         import path, mkdir
-from sys        import stderr, argv
+from sys        import stderr
 from Reddit     import Reddit, Child, Post, Comment
 from ImageUtils import ImageUtils
 from time       import strftime, gmtime
@@ -105,10 +105,10 @@ class Gonewild(object):
 					#self.debug('Comment: %d urls: %s "%s"' % (len(urls), child.permalink(), child.body.replace('\n', '')[0:30]))
 					self.db.add_comment(child)
 			except Exception, e:
-				self.debug('%s: poll_user: %s' % (user, str(e)))
+				self.debug('%s: poll_user: %s' % (child.author, str(e)))
 				continue # If we can't add the post/comment to DB, skip it
 			if len(urls) > 0:
-				self.debug('%s: poll_user: found %d url(s) in child %s' % (user, len(urls), child.permalink()))
+				self.debug('%s: poll_user: found %d url(s) in child %s' % (child.author, len(urls), child.permalink()))
 				for url_index, url in enumerate(urls):
 					self.process_url(url, url_index, child)
 		self.debug('%s: poll_user: done' % user)
@@ -119,6 +119,21 @@ class Gonewild(object):
 
 		self.logger.close()
 		self.logger = self.root_log
+
+	def poll_friends(self):
+		self.debug('poll_friends: loading newest posts from /r/friends/new')
+		posts = self.reddit.get('http://www.reddit.com/r/friends/new')
+		for post in posts:
+			# Check if post.author has lastsinceid of post.id in DB
+			# Setup loggers
+			# Ignore excluded subreddits
+			# self.db.add_post(post)
+			# get_urls + process
+			# Close loggers
+			pass
+
+		self.debug('poll_friends: loading newest comments from /r/friends/new')
+		comments = self.reddit.get('http://www.reddit.com/r/friends/comments')
 
 	''' Returns list of URLs found in a reddit child (post or comment) '''
 	def get_urls(self, child):
@@ -251,21 +266,31 @@ class Gonewild(object):
 			for newuser in newusers:
 				users.append(newuser)   # Add new user to existing list
 				self.poll_user(newuser) # Poll new user for content
-			# Look for /top if we hit the end of the list
+
 			last_index += 1
 			if last_index >= len(users):
 				last_index = 0
-				self.add_top_users() # Add users from /top
+				# Get top users if it's enabled
+				if self.db.get_config('add_top_users') != 'false':
+					self.add_top_users() # Add users from /top
 
 			user = users[last_index]
 			try:
 				self.poll_user(user) # Poll user for content
 				self.db.set_config('last_user', user)
 			except Exception, e:
-				self.debug('ininite_loop: poll_user: %s' % str(e))
+				self.debug('infinite_loop: poll_user: %s' % str(e))
 				from traceback import format_exc
 				print format_exc()
-	
+
+			# scan for updates from friends
+			try:
+				self.poll_friends()
+			except Exception, e:
+				self.debug('infinite_loop: poll_friends: %s' % str(e))
+				from traceback import format_exc
+				print format_exc()
+
 	def add_top_users(self):
 		subs = ['gonewild']
 		self.debug('add_top_users: loading top posts for the week from %s' % ','.join(subs))
@@ -280,6 +305,32 @@ class Gonewild(object):
 				self.debug('add_top_users: found new user, adding /u/%s' % post.author)
 				self.db.add_user(post.author, new=True)
 
+	def add_friend(self, user):
+		try:
+			self.reddit.add_friend(user)
+		except Exception, e:
+			self.debug(str(e))
+			return
+
+		if self.db.already_friend(user):
+			self.debug('warning: user /u/%s is already considered a friend in the database; friended anyway' % user)
+		else:
+			self.db.add_friend(user)
+			self.debug('user /u/%s saved as friend' % user)
+
+	def remove_friend(self, user):
+		try:
+			self.reddit.remove_friend(user)
+		except Exception, e:
+			self.debug(str(e))
+			return
+
+		if not self.db.already_friend(user):
+			self.debug('warning: user /u/%s is not considered a friend in the database; unfriended anyway' % user)
+		else:
+			self.db.remove_friend(user)
+			self.debug('user /u/%s removed as friend' % user)
+
 	def exit_if_already_started(self):
 		from commands import getstatusoutput
 		(status, output) = getstatusoutput('ps aux')
@@ -289,6 +340,18 @@ class Gonewild(object):
 				running_processes += 1
 		if running_processes > 1:
 			exit(0) # Quit silently if the bot is already running
+
+	def login(self):
+		try:
+			(username, password) = self.db.get_credentials('reddit')
+			try:
+				self.reddit.login(username, password)
+			except Exception, e:
+				self.debug('__init__: failed to login to reddit: %s' % str(e))
+				raise e
+		except Exception, e:
+			self.debug('__init__: failed to get reddit credentials: %s' % str(e))
+			raise e
 
 def print_help():
 	print '''
@@ -317,6 +380,25 @@ def print_help():
 	 -i <subreddit>
 		Include subreddit (that is, unexclude subreddit)
 
+	--friend <user>
+	 -f <user>
+		Friend a user
+
+	--unfriend <user>
+	 -unf <user>
+		Unfriend a user
+
+	--friends
+		Display list of friends
+
+	--friend-zone
+	 -fz
+		Enable "Friend-Zone" mode; only look for new content from friends on /r/friends
+
+	--add-top
+	 -at
+		Toggle automatic addition of users from http://reddit.com/r/gonewild/top?t=week
+
 	--reddit <username> <password>
 	 -r <username> <password>
 		Store or update reddit login credentials.
@@ -329,58 +411,94 @@ def print_help():
 '''
 
 if __name__ == '__main__':
-	from sys import exit
+	from sys import argv, exit
 	if argv[0].startswith('python'): argv.pop(0)
 	if 'Gonewild.py' in argv[0]:     argv.pop(0)
 
 	gw = Gonewild()
-	
+
 	try:
 		if len(argv) == 1:
 			if argv[0].lower() in ['--help', '-help', '-h', '--h', '?']:
 				print_help()
-				exit(0)
 
-		if len(argv) == 2:
-			if argv[0].lower() in ['--exclude', '-exclude', '--x', '-x']:
-				gw.add_excluded_subreddit(argv[1].replace('/r/', '').replace('/', ''))
-				gw.debug('added excluded subreddit: "%s"' % argv[1])
-				exit(0)
-			if argv[0].lower() in ['--include', '-include', '--i', '-i']:
-				gw.db.remove_excluded_subreddit(argv[1].replace('/r/', '').replace('/', ''))
-				gw.debug('removed excluded subreddit: "%s"' % argv[1])
-				exit(0)
-
-			if argv[0].lower() in ['--add', '-add', '--a', '-a']:
-				user = argv[1].replace('/u/', '').replace('/', '')
-				if not gw.db.user_already_added(user):
-					gw.debug('adding new user: /u/%s' % user)
-					gw.db.add_user(user, new=True)
+			elif argv[0].lower() in ['--friend-zone', '-friendzone', '--fz', '-fz']:
+				if gw.db.get_config('friend_zone') == 'true':
+					gw.debug('friend-zone disabled; will manually scrape every user')
+					gw.db.set_config('friend_zone', 'false')
 				else:
-					gw.debug('warning: user already added: /u/%s' % user)
-				exit(0)
+					gw.db.set_config('friend_zone', 'true')
+					gw.debug('friend-zone enabled; will scrape from /r/friends and each user page')
+					db_users = gw.db.get_users_list()
+					db_friends = gw.db.get_friends_list()
+					gw.login()
+					reddit_friends = gw.reddit.get_friends_list()
+					gw.debug('%d total users, %d friends in DB, %d friends on reddit' % (len(db_users), len(db_friends), len(reddit_friends)))
+					need2add = [need2friend for need2friend in db_users if need2friend not in db_friends]
+					need2add += [need2friend for need2friend in db_users if need2friend not in reddit_friends]
+					need2add = list(set(need2add))
+					gw.debug('Found %d users that are not friended. to friend them, execute:\npython Gonewild.py --friend %s' % (len(need2add), ','.join(need2add)))
+
+			elif argv[0].lower() in ['--add-top', '-addtop', '--at', '-at']:
+				if gw.db.get_config('add_top_users') != 'false':
+					gw.db.set_config('add_top_users', 'false')
+					gw.debug('will stop automatically adding top users from http://reddit.com/r/gonewild/top?t=week')
+				else:
+					gw.db.set_config('add_top_users', 'true')
+					gw.debug('will automatically add top users from http://reddit.com/r/gonewild/top?t=week')
+			exit(0)
+
+		elif len(argv) == 2:
+			if argv[0].lower() in ['--exclude', '-exclude', '--x', '-x']:
+				subs = argv[1].replace('r/', '').replace('/', '').split(',')
+				for sub in subs:
+					try:
+						gw.add_excluded_subreddit(sub)
+						gw.debug('added excluded subreddit: /r/%s' % sub)
+					except Exception, e:
+						gw.debug('unable to exclude subreddit /r/%s: %s' % (sub, str(e)))
+			elif argv[0].lower() in ['--include', '-include', '--i', '-i']:
+				subs = argv[1].replace('r/', '').replace('/', '').split(',')
+				for sub in subs:
+					try:
+						gw.db.remove_excluded_subreddit(sub)
+						gw.debug('removed excluded subreddit: /r/%s' % sub)
+					except Exception, e:
+						gw.debug('unable to remove excluded subreddit /r/%s: %s' % (sub, str(e)))
+
+			elif argv[0].lower() in ['--add', '-add', '--a', '-a']:
+				users = argv[1].replace('u/', '').replace('/', '').split(',')
+				for user in users:
+					if not gw.db.user_already_added(user):
+						gw.debug('adding new user: /u/%s' % user)
+						gw.db.add_user(user, new=True)
+					else:
+						gw.debug('warning: user already added: /u/%s' % user)
+
+			elif argv[0].lower() in ['--friend', '-friend', '--f', '-f']:
+				users = argv[1].replace('u/', '').replace('/', '').split(',')
+				gw.login()
+				for user in users:
+					gw.add_friend(user)
+			elif argv[0].lower() in ['--unfriend', '-unfriend', '--unf', '-unf']:
+				users = argv[1].replace('u/', '').replace('/', '').split(',')
+				gw.login()
+				for user in users:
+					gw.remove_friend(user)
+			exit(0)
+
 		if len(argv) == 3:
 			if argv[0].lower() in ['--reddit', '-r']:
 				gw.db.set_credentials('reddit', argv[1], argv[2])
 				gw.debug('added/updated reddit login credentials for user "%s"' % argv[1])
-				exit(0)
-			if argv[0].lower() in ['--soundcloud', '-sc']:
+			elif argv[0].lower() in ['--soundcloud', '-sc']:
 				gw.db.set_credentials('soundcloud', argv[1], argv[2])
 				gw.debug('added/updated soundcloud login credentials for user "%s"' % argv[1])
-				exit(0)
+			exit(0)
 	except Exception, e:
 		gw.debug('\n[!] Error: %s' % str(e.message))
-		exit(1)
-
-	try:
-		(username, password) = gw.db.get_credentials('reddit')
-		try:
-			gw.reddit.login(username, password)
-		except Exception, e:
-			gw.debug('__init__: failed to login to reddit: %s' % str(e))
-			exit(1)
-	except Exception, e:
-		gw.debug('__init__: failed to get reddit credentials: %s' % str(e))
+		from traceback import format_exc
+		print format_exc()
 		exit(1)
 
 	gw.infinite_loop()

@@ -106,6 +106,10 @@ SCHEMA = {
 		'\n\t' +
 		'key text primary key, \n\t' +
 		'value text  \n\t',
+
+	'friends' :
+		'\n\t' +
+		'username text primary key\n\t',
 }
 
 DB_FILE = path.join(ImageUtils.get_root(), 'database.db')
@@ -176,7 +180,7 @@ class DB:
 	def get_cursor(self):
 		return self.conn.cursor()
 	
-	def count(self, table, where, values=[]):
+	def count(self, table, where='', values=[]):
 		return self.select_one('count(*)', table, where, values=values)
 	
 	def select(self, what, table, where='', values=[]):
@@ -571,6 +575,9 @@ class DB:
 					pass
 	
 	def get_credentials(self, site):
+		if self.count('credentials', 'site = ?', [site]) == 0:
+			raise Exception('Credentials for %s not found in database, run "Gonewild.py --help" for more info' % site)
+
 		q = 'select username,password from credentials where site = "%s"' % site
 		cur = self.conn.cursor()
 		(username, password) = cur.execute(q).fetchone()
@@ -636,7 +643,33 @@ class DB:
 		''' % (user)
 		cur.execute(query)
 		self.commit()
+
+	def already_friend(self, user):
+		return self.count('friends', 'username = ?', [user]) > 0
 	
+	def add_friend(self, user):
+		cur = self.conn.cursor()
+		cur.execute('insert into friends values (?)', [user])
+		self.commit()
+
+	def remove_friend(self, user):
+		self.delete('friends', 'username like ?', [user])
+		self.commit()
+
+	def get_friends_list(self):
+		result = []
+		for friend in self.select('username', 'friends'):
+			result.append(friend[0])
+		return result
+
+	def get_users_list(self):
+		result = []
+		for user in self.select('username', 'users'):
+			result.append(user[0])
+		for user in self.select('username', 'newusers'):
+			result.append(user[0])
+		return result
+
 	def get_config(self, key):
 		cur = self.conn.cursor()
 		query = '''

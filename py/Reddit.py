@@ -81,6 +81,8 @@ class Reddit(object):
 	logger = stderr
 	httpy = Httpy(user_agent='user ripper by /u/4_pr0n, or contact admin@rarchives.com')
 	last_request = 0.0
+	modhash = None
+	user_id = None
 
 	@staticmethod
 	def asciify(text):
@@ -153,6 +155,8 @@ class Reddit(object):
 			raise Exception('login: failed to parse response: %s' % r)
 		if not 'json' in json or not 'data' in json['json']:
 			raise Exception('login: failed: %s' % r)
+		if 'modhash' in json['json']['data']:
+			Reddit.modhash = json['json']['data']['modhash']
 		# Logged in
 		Reddit.debug('logged in')
 
@@ -269,6 +273,90 @@ class Reddit(object):
 	# id	#friend
 	# uh	[userhash]
 	# renderstyle	html
+
+	@staticmethod
+	def get_user_id(user=None):
+		'''
+			User = None means to get logged-on user's id
+			Otherwise, look up ID of 'user'
+		'''
+		if user != None:
+			# Requesting ID of another user
+			r = "{no response}"
+			try:
+				Reddit.wait()
+				r = Reddit.httpy.get('http://www.reddit.com/user/%s/about.json' % user)
+				json = loads(r)
+				if 'data' in json and 'id' in json['data']:
+					return json['data']['id']
+			except Exception, e:
+				if '404' in str(e):
+					Reddit.debug('user /u/%s is not found (404)' % user)
+				raise e
+			raise Exception('could not find user ID for %s at /u/%s/about.json: %s' % (user, r))
+
+		# Requesting this user's ID
+		if Reddit.user_id == None:
+			Reddit.wait()
+			r = Reddit.httpy.get('http://www.reddit.com/api/me.json')
+			json = loads(r)
+			if 'data' in json and 'id' in json['data']:
+				Reddit.user_id = 't2_%s' % json['data']['id']
+			else:
+				raise Exception('failed to get logged-in user\'s id from /api/me.json: %s' % r)
+		return Reddit.user_id
+
+	@staticmethod
+	def add_friend(user):
+		user_id = Reddit.get_user_id(user=None)
+		d = {
+				'action'   : 'add',
+				'type'     : 'friend',
+				'name'     : user,
+				'container': user_id,
+				'uh'       : Reddit.modhash,
+				'id'       : '#friend',
+				'renderstyle' : 'html'
+			}
+		Reddit.wait()
+		r = Reddit.httpy.oldpost('http://www.reddit.com/api/friend' , d)
+		if 'USER_DOESNT_EXIST' in r:
+			Reddit.debug('USER_DOESNT_EXIST error while friending /u/%s' % user)
+			raise Exception('USER_DOESNT_EXIST')
+
+	@staticmethod
+	def remove_friend(user):
+		current_user_id = Reddit.get_user_id(user=None)
+		friend_user_id  = Reddit.get_user_id(user=user)
+		d = {
+				'executed' : 'removed',
+				'type'     : 'friend',
+				'name'     : user,
+				'container': current_user_id,
+				'uh'       : Reddit.modhash,
+				'id'       : friend_user_id,
+				'renderstyle' : 'html'
+			}
+		Reddit.wait()
+		r = Reddit.httpy.oldpost('http://www.reddit.com/api/unfriend' , d)
+		if not r.strip() == '{}':
+			Reddit.debug('did not receive expected response while unfriending /u/%s: %s' % (user, r))
+			raise Exception('unexpected response while unfriending /u/%s: %s' % (user, r))
+
+	@staticmethod
+	def get_friends_list():
+		Reddit.wait()
+		r = Reddit.httpy.get('http://www.reddit.com/prefs/friends.json')
+		json = loads(r)
+		if len(json) == 0:
+			raise Exception('no friends list found at /prefs/friends.json: %s' % r)
+
+		json = json[0] # Assume first list returned is the 'friends' list
+
+		if not 'data' in json or 'children' not in json['data']:
+			raise Exception('no "data" and "children" found at /prefs/friends.json: %s' % r)
+		friend_list = json['data']['children']
+		return [x['name'] for x in friend_list]
 
 if __name__ == '__main__':
 	for child in Reddit.get_user('hornysailor80', since='1omszx'): #'ccpj21b'): # ccbzguz
