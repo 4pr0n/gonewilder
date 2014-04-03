@@ -418,7 +418,7 @@ class ImageUtils(object):
 			 image.lower().endswith('.wmv'):
 			return ImageUtils.create_video_thumbnail(image, saveas)
 		if path.getsize(image) > ImageUtils.MAXIMUM_THUMBNAIL_SIZE:
-			raise Exception('Image too large: %db %db' % 
+			raise Exception('Image too large: %db > %db' % 
 					(path.getsize(image), ImageUtils.MAXIMUM_THUMBNAIL_SIZE))
 		try:
 			im = Image.open(image)

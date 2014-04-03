@@ -212,6 +212,19 @@ class DB:
 		cur.close()
 		return one[0]
 	
+	def update(self, table, what, where='', values=[]):
+		cur = self.conn.cursor()
+		if where != '':
+			where = 'where %s' % where
+		query = '''
+			update %s
+				set %s
+				%s
+		''' % (table, what, where)
+		execur = cur.execute(query, values)
+		one = execur.fetchone()
+		cur.close()
+
 	def execute(self, statement):
 		cur = self.conn.cursor()
 		result = cur.execute(statement)
@@ -670,7 +683,7 @@ class DB:
 			result.append(user[0])
 		return result
 
-	def get_config(self, key):
+	def get_config(self, key, default=None):
 		cur = self.conn.cursor()
 		query = '''
 			select value
@@ -682,8 +695,7 @@ class DB:
 			result = execur.fetchone()[0]
 			cur.close()
 		except Exception, e:
-			self.debug('failed to get config key "%s": %s' % (key, str(e)))
-			return None
+			return default
 		return result
 
 	def set_config(self, key, value):

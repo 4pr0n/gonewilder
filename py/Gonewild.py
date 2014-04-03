@@ -152,7 +152,6 @@ class Gonewild(object):
 				lastsinceid = self.db.get_last_since_id(user)
 				if lastsinceid == child.id:
 					# We've already retrieved this post
-					self.debug('poll_friends: Already retrieved reddit id %s from /u/%s, skipping' % (child.id, user))
 					continue
 
 				# Setup loggers
@@ -161,12 +160,12 @@ class Gonewild(object):
 				# Ignore excluded subreddits
 				if self.is_excluded_child(child):
 					continue
-				# get_urls + process
+
 				self.get_and_process_urls_from_child(child)
 
 				# Close loggers
 				self.restore_loggers()
-				pass
+
 
 	''' Returns list of URLs found in a reddit child (post or comment) '''
 	def get_urls(self, child):
@@ -233,7 +232,10 @@ Permalink: %s
 		else:
 			album_id = None
 
-		ImageUtils.create_subdirectories(path.join(working_dir, 'thumbs'))
+		if self.db.get_config('save_thumbnails', default='true') == 'true':
+			ImageUtils.create_subdirectories(path.join(working_dir, 'thumbs'))
+		else:
+			ImageUtils.create_subdirectories(working_dir)
 
 		for media_index, media in enumerate(medias):
 			# Construct save path: /user/post[-comment]-index-filename
@@ -263,13 +265,17 @@ Permalink: %s
 					# If we cannot process the media file, skip it!
 					self.debug('%s: process_url: #%d %s' % (child.author, media_index + 1, str(e)))
 					continue
-				# Create thumbnail
-				savethumbas = path.join(working_dir, 'thumbs', fname)
-				try:
-					savethumbas = ImageUtils.create_thumbnail(saveas, savethumbas)
-				except Exception, e:
+
+				# Create thumbnail if needed
+				if self.db.get_config('save_thumbnails', 'true') == 'false':
 					savethumbas = path.join(ImageUtils.get_root(), 'images', 'nothumb.png')
-					self.debug('%s: process_url: failed to create thumb #%d: %s, using default' % (child.author, media_index + 1, str(e)))
+				else:
+					savethumbas = path.join(working_dir, 'thumbs', fname)
+					try:
+						savethumbas = ImageUtils.create_thumbnail(saveas, savethumbas)
+					except Exception, e:
+						savethumbas = path.join(ImageUtils.get_root(), 'images', 'nothumb.png')
+						self.debug('%s: process_url: failed to create thumb #%d: %s, using default' % (child.author, media_index + 1, str(e)))
 
 			size = path.getsize(saveas)
 
@@ -448,6 +454,18 @@ Permalink: %s
 			self.debug('login: Failed to get reddit credentials: %s' % str(e))
 			raise e
 
+	def setup_config(self):
+		keys = {
+			'save_thumbnails' : 'true',
+			'add_top_users' : 'true',
+			'excluded_subreddits' : '',
+			'friend_zone' : 'some',
+			'last_user' : ''
+		}
+		for (key,value) in keys.iteritems():
+			if self.db.get_config(key) == None:
+				self.db.set_config(key, value)
+
 def handle_arguments(gw):
 	import argparse
 	parser = argparse.ArgumentParser(description='''
@@ -497,6 +515,10 @@ Arguments can continue multiple values (separated by commas)
 		help='Store soundcloud API credentials',
 		nargs=2,
 		metavar=('api', 'key'))
+
+	parser.add_argument('--backfill-thumbnails',
+		help='Attempt to create missing thumbnails',
+		action='store_true')
 
 	parser.add_argument('--config',
 		help='Show or set configuration values',
@@ -567,6 +589,24 @@ Arguments can continue multiple values (separated by commas)
 		gw.db.set_credentials('soundcloud', args.soundcloud[0], args.soundcloud[1])
 		gw.debug('Added/updated soundcloud login credentials for user "%s"' % args.soundcloud[0])
 
+	elif args.backfill_thumbnails:
+		for imageid,imagepath in gw.db.select('id,path', 'images', 'thumb like "%nothumb.png"'):
+			fname = path.basename(imagepath)
+			fpath = path.dirname(imagepath)
+
+			thumbpath = path.join(fpath, 'thumbs')
+			ImageUtils.create_subdirectories(thumbpath)
+			savethumbas = path.join(thumbpath, fname)
+
+			try:
+				savethumbas = ImageUtils.create_thumbnail(imagepath, savethumbas)
+				gw.db.update('images', 'thumb = ?', 'id = ?', [savethumbas, imageid])
+				gw.debug('created thumbnail %s' % savethumbas)
+			except Exception, e:
+				savethumbas = path.join(ImageUtils.get_root(), 'images', 'nothumb.png')
+				gw.debug('Backfill-Thumbnails: Failed to create thumb for %s: %s, using nothumb.png' % (imagepath, str(e)))
+		gw.db.commit()
+
 	elif args.config == [] or args.config:
 		if len(args.config) == 0:
 			gw.debug('Dumping configuration values...')
@@ -591,7 +631,7 @@ Arguments can continue multiple values (separated by commas)
 if __name__ == '__main__':
 
 	gw = Gonewild()
-
+	gw.setup_config()
 	try:
 		if handle_arguments(gw):
 			exit(0)
