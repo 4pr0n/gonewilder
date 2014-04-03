@@ -21,6 +21,7 @@ class Gonewild(object):
 		self.logger   = self.root_log # Logger used by helper classes
 		self.db       = DB() # Database instance
 		self.reddit   = Reddit()
+		self.excluded_subs = self.db.get_excluded_subreddits()
 		
 	def debug(self, text):
 		tstamp = strftime('[%Y-%m-%dT%H:%M:%SZ]', gmtime())
@@ -51,13 +52,7 @@ class Gonewild(object):
 	def add_excluded_subreddit(self, subreddit):
 		return self.db.add_excluded_subreddit(subreddit)
 
-	'''
-		Gets new posts/comments for user,
-		Finds URLs in posts/comments,
-		"Processes" (downloads) URLs,
-		Adds results to database.
-	'''
-	def poll_user(self, user):
+	def setup_loggers_for_user(self, user):
 		# Create directories if needed
 		user_dir = path.join(ImageUtils.get_root(), 'content', user)
 		ImageUtils.create_subdirectories(user_dir)
@@ -66,6 +61,43 @@ class Gonewild(object):
 		self.db.logger     = self.logger
 		ImageUtils.logger  = self.logger
 		self.reddit.logger = self.logger
+
+	def restore_loggers(self):
+		self.logger.close()
+		self.logger = self.root_log
+
+	def is_excluded_child(self, child):
+		if child.subreddit.lower() in [x.lower() for x in self.excluded_subs]:
+			self.debug('''%s: poll_user: Ignoring post/comment in excluded subreddit ("%s")
+  Permalink: %s
+    Ignored: %s''' % (child.author, child.subreddit, child.permalink(), str(child)))
+			return True
+		return False
+
+	def get_and_process_urls_from_child(self, child):
+		urls = self.get_urls(child)
+		try:
+			if type(child) == Post:
+				self.db.add_post(child)
+			elif type(child) == Comment:
+				self.db.add_comment(child)
+		except Exception, e:
+			if 'already exists' not in str(e):
+				self.debug('%s: poll_user: %s' % (child.author, str(e)))
+			return # If we can't add the post/comment to DB, skip it
+		if len(urls) > 0:
+			self.debug('%s: poll_user: found %d url(s) in child %s' % (child.author, len(urls), child.permalink()))
+			for url_index, url in enumerate(urls):
+				self.process_url(url, url_index, child)
+
+	def poll_user(self, user):
+		'''
+			Gets new posts/comments for user,
+			Finds URLs in posts/comments,
+			"Processes" (downloads) URLs,
+			Adds results to database.
+		'''
+		self.setup_loggers_for_user(user)
 
 		since_id = self.db.get_last_since_id(user)
 		# Get posts/comments for user
@@ -87,53 +119,54 @@ class Gonewild(object):
 
 		self.debug('%s: poll_user: %d new posts and comments found' % (user, len(children)))
 
-		excluded_subs = self.db.get_excluded_subreddits()
 		for child in children:
 			# Ignore certain subreddits
-			if child.subreddit.lower() in excluded_subs:
-				self.debug('''%s: poll_user: Ignoring post/comment in excluded subreddit ("%s")
-  Permalink: %s
-    Ignored: %s''' % (user, child.subreddit, child.permalink(), str(child)))
+			if self.is_excluded_child(child):
 				continue
 
-			urls = self.get_urls(child)
-			try:
-				if type(child) == Post:
-					#self.debug('   Post: %d urls: %s "%s"' % (len(urls), child.permalink(), child.title.replace('\n', '')[0:30]))
-					self.db.add_post(child)
-				elif type(child) == Comment:
-					#self.debug('Comment: %d urls: %s "%s"' % (len(urls), child.permalink(), child.body.replace('\n', '')[0:30]))
-					self.db.add_comment(child)
-			except Exception, e:
-				self.debug('%s: poll_user: %s' % (child.author, str(e)))
-				continue # If we can't add the post/comment to DB, skip it
-			if len(urls) > 0:
-				self.debug('%s: poll_user: found %d url(s) in child %s' % (child.author, len(urls), child.permalink()))
-				for url_index, url in enumerate(urls):
-					self.process_url(url, url_index, child)
+			self.get_and_process_urls_from_child(child)
+			
 		self.debug('%s: poll_user: done' % user)
 
 		# Set last 'since' to the most-recent post/comment ID
 		self.debug('%s: poll_user: setting most-recent since_id to "%s"' % (user, children[0].id))
 		self.db.set_last_since_id(user, children[0].id)
 
-		self.logger.close()
-		self.logger = self.root_log
-
 	def poll_friends(self):
-		self.debug('poll_friends: loading newest posts from /r/friends/new')
-		posts = self.reddit.get('http://www.reddit.com/r/friends/new')
-		for post in posts:
-			# Check if post.author has lastsinceid of post.id in DB
-			# Setup loggers
-			# Ignore excluded subreddits
-			# self.db.add_post(post)
-			# get_urls + process
-			# Close loggers
-			pass
+		'''
+			Retrieve posts & comments from /r/friends.
+			Scrape new content, store in database.
+		'''
 
-		self.debug('poll_friends: loading newest comments from /r/friends/new')
-		comments = self.reddit.get('http://www.reddit.com/r/friends/comments')
+		for friend_url in ['/r/friends/new', '/r/friends/comments']:
+			children = self.reddit.get('http://www.reddit.com%s.json' % friend_url)
+			self.debug('poll_friends: loaded %d items from %s' % (len(children), friend_url))
+			for child in children:
+				user = child.author
+
+				# Add friend as 'user' in DB if needed
+				if not self.db.user_already_added(user):
+					self.db.add_user(user)
+
+				# Check child.id matches the child.author's lastsinceid in DB
+				lastsinceid = self.db.get_last_since_id(user)
+				if lastsinceid == child.id:
+					# We've already retrieved this post
+					self.debug('poll_friends: Already retrieved reddit id %s from /u/%s, skipping' % (child.id, user))
+					continue
+
+				# Setup loggers
+				self.setup_loggers_for_user(user)
+
+				# Ignore excluded subreddits
+				if self.is_excluded_child(child):
+					continue
+				# get_urls + process
+				self.get_and_process_urls_from_child(child)
+
+				# Close loggers
+				self.restore_loggers()
+				pass
 
 	''' Returns list of URLs found in a reddit child (post or comment) '''
 	def get_urls(self, child):
@@ -150,6 +183,13 @@ class Gonewild(object):
 	''' Downloads media(s) at url, adds to database. '''
 	def process_url(self, url, url_index, child):
 		self.debug('%s: process_url: %s' % (child.author, url))
+
+		# Ignore duplicate albums
+		if self.db.album_exists(url):
+			self.debug('''%s: process_url: album %s already exists in database.
+Permalink: %s
+   Object: %s''' % (child.author, url, child.permalink(), str(child)))
+			return
 
 		userid = self.db.get_user_id(child.author)
 		if type(child) == Post:
@@ -180,11 +220,6 @@ class Gonewild(object):
 
 		if albumname != None:
 			# Album!
-			if self.db.album_exists(url):
-				self.debug('''%s: process_url: album %s already exists in database.
-    Permalink: %s
-       Object: %s''' % (child.author, url, child.permalink(), str(child)))
-				return
 			albumname = '%s-%s' % (base_fname, albumname)
 			working_dir = path.join(working_dir, albumname)
 			#self.debug('%s: process_url: adding album to database' % child.author)
@@ -264,7 +299,12 @@ class Gonewild(object):
 			# Look for and poll newly-added users
 			newusers = self.db.get_users(new=True)
 			for newuser in newusers:
-				users.append(newuser)   # Add new user to existing list
+				# Add new user to existing list
+				users.append(newuser)
+				# Add user to friends list if applicable
+				friend_zone = self.db.get_config('friend_zone')
+				if friend_zone == None or friend_zone == 'none':
+					self.add_friend(newuser)
 				self.poll_user(newuser) # Poll new user for content
 
 			last_index += 1
@@ -275,21 +315,29 @@ class Gonewild(object):
 					self.add_top_users() # Add users from /top
 
 			user = users[last_index]
-			try:
-				self.poll_user(user) # Poll user for content
-				self.db.set_config('last_user', user)
-			except Exception, e:
-				self.debug('infinite_loop: poll_user: %s' % str(e))
-				from traceback import format_exc
-				print format_exc()
+			# Add user to friends list if applicable
+			friend_zone = self.db.get_config('friend_zone')
+			if friend_zone == 'only' or friend_zone == 'some':
+				if not self.db.already_friend(user):
+					self.add_friend(user)
 
-			# scan for updates from friends
-			try:
-				self.poll_friends()
-			except Exception, e:
-				self.debug('infinite_loop: poll_friends: %s' % str(e))
-				from traceback import format_exc
-				print format_exc()
+				# Scan for updates from friends
+				try:
+					self.poll_friends()
+				except Exception, e:
+					self.debug('infinite_loop: poll_friends: %s' % str(e))
+					from traceback import format_exc
+					print format_exc()
+
+			# Poll user if applicable
+			if friend_zone != 'only':
+				try:
+					self.poll_user(user) # Poll user for content
+					self.db.set_config('last_user', user)
+				except Exception, e:
+					self.debug('infinite_loop: poll_user: %s' % str(e))
+					from traceback import format_exc
+					print format_exc()			
 
 	def add_top_users(self):
 		subs = ['gonewild']
@@ -302,7 +350,7 @@ class Gonewild(object):
 		for post in posts:
 			if post.author == '[deleted]': continue
 			if not self.db.user_already_added(post.author):
-				self.debug('add_top_users: found new user, adding /u/%s' % post.author)
+				self.debug('add_top_users: Found new user, adding /u/%s' % post.author)
 				self.db.add_user(post.author, new=True)
 
 	def add_friend(self, user):
@@ -313,10 +361,10 @@ class Gonewild(object):
 			return
 
 		if self.db.already_friend(user):
-			self.debug('warning: user /u/%s is already considered a friend in the database; friended anyway' % user)
+			self.debug('Warning: User /u/%s is already considered a "friend" in the DB; tried to friend on reddit anyway' % user)
 		else:
 			self.db.add_friend(user)
-			self.debug('user /u/%s saved as friend' % user)
+			self.debug('User /u/%s saved as friend on reddit & DB' % user)
 
 	def remove_friend(self, user):
 		try:
@@ -326,10 +374,57 @@ class Gonewild(object):
 			return
 
 		if not self.db.already_friend(user):
-			self.debug('warning: user /u/%s is not considered a friend in the database; unfriended anyway' % user)
+			self.debug('Warning: User /u/%s is not considered a friend in the DB; tried to unfriend on reddit anyway' % user)
 		else:
 			self.db.remove_friend(user)
-			self.debug('user /u/%s removed as friend' % user)
+			self.debug('User /u/%s removed as friend on reddit & DB' % user)
+
+	def compare_friends(self, add_friends=False):
+		db_users = self.db.get_users_list()
+		db_friends = self.db.get_friends_list()
+		self.login()
+		reddit_friends = self.reddit.get_friends_list()
+		self.debug('%d total users, %d friends in DB, %d friends on reddit' % (len(db_users), len(db_friends), len(reddit_friends)))
+
+		need2add = []
+
+		# Add friends from reddit to the DB
+		for friend in reddit_friends:
+			if friend.lower() not in [x.lower() for x in db_friends]:
+				self.db.add_friend(friend)
+				self.debug('Added reddit friend to DB: /u/%s' % friend)
+
+		# Add friends in DB to reddit's friends list
+		for friend in db_friends:
+			if friend.lower() not in [x.lower() for x in reddit_friends]:
+				need2add.append(friend)
+
+		# Add users from DB to reddit's friends list
+		for friend in db_users:
+			if friend.lower() not in [x.lower() for x in db_friends]:
+				need2add.append(friend)
+			elif friend.lower() not in [x.lower() for x in reddit_friends]:
+				need2add.append(friend)
+
+		# Remove duplicates
+		need2add = list(set(need2add))
+
+		if len(need2add) > 0:
+			if add_friends:
+				self.debug('Synchronizing friends...')
+				for friend in need2add:
+					self.add_friend(friend)
+					self.debug('Added /u/%s as a friend on reddit' % friend)
+			else:
+				self.debug('Found %d users that are not friended. to friend them, execute:\npython Gonewild.py --friend %s' % (len(need2add), ','.join(need2add)))
+		
+	def toggle_addtop(self):
+		if self.db.get_config('add_top_users') != 'false':
+			self.db.set_config('add_top_users', 'false')
+			self.debug('Will stop automatically adding top users from http://reddit.com/r/gonewild/top?t=week')
+		else:
+			self.db.set_config('add_top_users', 'true')
+			self.debug('Will automatically add top users from http://reddit.com/r/gonewild/top?t=week')
 
 	def exit_if_already_started(self):
 		from commands import getstatusoutput
@@ -347,159 +442,167 @@ class Gonewild(object):
 			try:
 				self.reddit.login(username, password)
 			except Exception, e:
-				self.debug('__init__: failed to login to reddit: %s' % str(e))
+				self.debug('login: Failed to login to reddit: %s' % str(e))
 				raise e
 		except Exception, e:
-			self.debug('__init__: failed to get reddit credentials: %s' % str(e))
+			self.debug('login: Failed to get reddit credentials: %s' % str(e))
 			raise e
 
-def print_help():
-	print '''
-	gonewilder - https://github.com/4pr0n/gonewilder
+def handle_arguments(gw):
+	import argparse
+	parser = argparse.ArgumentParser(description='''
+Gonewild content aggregator.
+Run without any arguments to start scraping in an infinite loop.
+Be sure to add a working reddit account before scraping.
+Arguments can continue multiple values (separated by commas)
+''')
 
-	COMMAND-LINE USAGE
+	parser.add_argument('--add', '-a',
+		help='Add user(s) to scan for new content',
+		metavar='USER')
+	parser.add_argument('--add-top', '-tz',
+		help='Toggle adding top users from /r/gonewild',
+		action='store_true')
 
-	<no arguments>
-		Run in infinite loop, looking for new posts from the users
-		found in the database. Add new-found users to database.
+	parser.add_argument('--exclude',
+		help='Add subreddit to exclude (ignore)',
+		metavar='SUBREDDIT')
+	parser.add_argument('--include',
+		help='Remove subreddit from excluded list',
+		metavar='SUBREDDIT')
 
-	--help
-	 -h
-		This message
+	parser.add_argument('--friend',
+		help='Add user(s) to reddit "friends" list',
+		metavar='USER')
+	parser.add_argument('--unfriend',
+		help='Remove user(s) from reddit "friends" list',
+		metavar='USER')
+	parser.add_argument('--no-friend-zone',
+		help='Do not poll /r/friends, only user pages (default)',
+		action='store_true')
+	parser.add_argument('--friend-zone',
+		help='Poll both /r/friends AND user pages',
+		action='store_true')
+	parser.add_argument('--just-friends',
+		help='Only use /r/friends; Don\'t poll user pages',
+		action='store_true')
+	parser.add_argument('--sync-friends',
+		help='Synchronizes database with reddit\'s friends list',
+		action='store_true')
+	parser.add_argument('--reddit',
+		help='Store reddit user account credentials',
+		nargs=2,
+		metavar=('user', 'pass'))
+	parser.add_argument('--soundcloud',
+		help='Store soundcloud API credentials',
+		nargs=2,
+		metavar=('api', 'key'))
 
-	--add <user>
-	 -a <user>
-		Add user to database
+	parser.add_argument('--config',
+		help='Show or set configuration values',
+		nargs='*',
+		metavar=('key', 'value'))
 
-	--exclude <subredit>
-	 -x <subreddit>
-		Exclude subreddit. Ignore any media found in posts/comments to
-		these subreddits.
+	args = parser.parse_args()
 
-	--include <subreddit>
-	 -i <subreddit>
-		Include subreddit (that is, unexclude subreddit)
+	if args.friend_zone:
+		gw.db.set_config('friend_zone', 'some')
+		gw.debug('Friend-zone enabled; Will scrape both /r/friends AND user pages')
+		gw.compare_friends()
+	elif args.just_friends:
+		gw.db.set_config('friend_zone', 'only')
+		gw.debug('Friend-zone enabled; Will ONLY scrape /r/friends (not user pages)')
+		gw.compare_friends()
+	elif args.no_friend_zone:
+		gw.db.set_config('friend_zone', 'none')
+		gw.debug('Friend-zone disabled; Will ONLY scrape user pages (not /r/friends)')
+	elif args.sync_friends:
+		gw.compare_friends(add_friends=True)
+		gw.debug('Friends list synced with database')
 
-	--friend <user>
-	 -f <user>
-		Friend a user
+	elif args.add_top:
+		gw.toggle_addtop()
 
-	--unfriend <user>
-	 -unf <user>
-		Unfriend a user
+	elif args.add:
+		users = args.add.replace('u/', '').replace('/', '').split(',')
+		for user in users:
+			if not gw.db.user_already_added(user):
+				gw.db.add_user(user, new=True)
+				gw.debug('Add new user: /u/%s' % user)
+			else:
+				gw.debug('Warning: User already added: /u/%s' % user)
 
-	--friends
-		Display list of friends
+	elif args.friend:
+		users = args.friend.replace('u/', '').replace('/', '').split(',')
+		gw.login()
+		for user in users:
+			gw.add_friend(user)
+	elif args.unfriend:
+		users = args.unfriend.replace('u/', '').replace('/', '').split(',')
+		gw.login()
+		for user in users:
+			gw.remove_friend(user)
 
-	--friend-zone
-	 -fz
-		Enable "Friend-Zone" mode; only look for new content from friends on /r/friends
+	elif args.exclude:
+		subs = args.exclude.replace('r/', '').replace('/', '').split(',')
+		for sub in subs:
+			try:
+				gw.add_excluded_subreddit(sub)
+				gw.debug('Added excluded subreddit: /r/%s' % sub)
+			except Exception, e:
+				gw.debug('Unable to exclude subreddit /r/%s: %s' % (sub, str(e)))
+	elif args.include:
+		subs = args.include.replace('r/', '').replace('/', '').split(',')
+		for sub in subs:
+			try:
+				gw.db.remove_excluded_subreddit(sub)
+				gw.debug('Removed excluded subreddit: /r/%s' % sub)
+			except Exception, e:
+				gw.debug('Unable to remove excluded subreddit /r/%s: %s' % (sub, str(e)))
 
-	--add-top
-	 -at
-		Toggle automatic addition of users from http://reddit.com/r/gonewild/top?t=week
+	elif args.reddit:
+		gw.db.set_credentials('reddit', args.reddit[0], args.reddit[1])
+		gw.debug('Added/updated reddit login credentials for user "%s"' % args.reddit[0])
+	elif args.soundcloud:
+		gw.db.set_credentials('soundcloud', args.soundcloud[0], args.soundcloud[1])
+		gw.debug('Added/updated soundcloud login credentials for user "%s"' % args.soundcloud[0])
 
-	--reddit <username> <password>
-	 -r <username> <password>
-		Store or update reddit login credentials.
-		Accounts can be modified (in 'preferences') to fetch 100 posts 
-		per query. This makes fetching new content faster.
-
-	--soundcloud <username> <password>
-	 -sc <username> <password>
-		Store or update soundcloud API credentials.
-'''
+	elif args.config == [] or args.config:
+		if len(args.config) == 0:
+			gw.debug('Dumping configuration values...')
+			for (key, value) in sorted(gw.db.select('key,value', 'config')):
+				gw.debug('%s = "%s"' % (key, value))
+		elif len(args.config) == 1:
+			key = args.config[0]
+			value = gw.db.get_config(key)
+			if value == None:
+				gw.debug('Configuration key not found for "%s"' % key)
+			else:
+				gw.debug('Configuration: %s = "%s"' % (key, value))
+		elif len(args.config) == 2:
+			key = args.config[0]
+			value = args.config[1]
+			gw.db.set_config(key, value)
+			gw.debug('Saved configuration: %s = "%s"' % (key, value))
+	else:
+		return False
+	return True
 
 if __name__ == '__main__':
-	from sys import argv, exit
-	if argv[0].startswith('python'): argv.pop(0)
-	if 'Gonewild.py' in argv[0]:     argv.pop(0)
 
 	gw = Gonewild()
 
 	try:
-		if len(argv) == 1:
-			if argv[0].lower() in ['--help', '-help', '-h', '--h', '?']:
-				print_help()
-
-			elif argv[0].lower() in ['--friend-zone', '-friendzone', '--fz', '-fz']:
-				if gw.db.get_config('friend_zone') == 'true':
-					gw.debug('friend-zone disabled; will manually scrape every user')
-					gw.db.set_config('friend_zone', 'false')
-				else:
-					gw.db.set_config('friend_zone', 'true')
-					gw.debug('friend-zone enabled; will scrape from /r/friends and each user page')
-					db_users = gw.db.get_users_list()
-					db_friends = gw.db.get_friends_list()
-					gw.login()
-					reddit_friends = gw.reddit.get_friends_list()
-					gw.debug('%d total users, %d friends in DB, %d friends on reddit' % (len(db_users), len(db_friends), len(reddit_friends)))
-					need2add = [need2friend for need2friend in db_users if need2friend not in db_friends]
-					need2add += [need2friend for need2friend in db_users if need2friend not in reddit_friends]
-					need2add = list(set(need2add))
-					gw.debug('Found %d users that are not friended. to friend them, execute:\npython Gonewild.py --friend %s' % (len(need2add), ','.join(need2add)))
-
-			elif argv[0].lower() in ['--add-top', '-addtop', '--at', '-at']:
-				if gw.db.get_config('add_top_users') != 'false':
-					gw.db.set_config('add_top_users', 'false')
-					gw.debug('will stop automatically adding top users from http://reddit.com/r/gonewild/top?t=week')
-				else:
-					gw.db.set_config('add_top_users', 'true')
-					gw.debug('will automatically add top users from http://reddit.com/r/gonewild/top?t=week')
-			exit(0)
-
-		elif len(argv) == 2:
-			if argv[0].lower() in ['--exclude', '-exclude', '--x', '-x']:
-				subs = argv[1].replace('r/', '').replace('/', '').split(',')
-				for sub in subs:
-					try:
-						gw.add_excluded_subreddit(sub)
-						gw.debug('added excluded subreddit: /r/%s' % sub)
-					except Exception, e:
-						gw.debug('unable to exclude subreddit /r/%s: %s' % (sub, str(e)))
-			elif argv[0].lower() in ['--include', '-include', '--i', '-i']:
-				subs = argv[1].replace('r/', '').replace('/', '').split(',')
-				for sub in subs:
-					try:
-						gw.db.remove_excluded_subreddit(sub)
-						gw.debug('removed excluded subreddit: /r/%s' % sub)
-					except Exception, e:
-						gw.debug('unable to remove excluded subreddit /r/%s: %s' % (sub, str(e)))
-
-			elif argv[0].lower() in ['--add', '-add', '--a', '-a']:
-				users = argv[1].replace('u/', '').replace('/', '').split(',')
-				for user in users:
-					if not gw.db.user_already_added(user):
-						gw.debug('adding new user: /u/%s' % user)
-						gw.db.add_user(user, new=True)
-					else:
-						gw.debug('warning: user already added: /u/%s' % user)
-
-			elif argv[0].lower() in ['--friend', '-friend', '--f', '-f']:
-				users = argv[1].replace('u/', '').replace('/', '').split(',')
-				gw.login()
-				for user in users:
-					gw.add_friend(user)
-			elif argv[0].lower() in ['--unfriend', '-unfriend', '--unf', '-unf']:
-				users = argv[1].replace('u/', '').replace('/', '').split(',')
-				gw.login()
-				for user in users:
-					gw.remove_friend(user)
-			exit(0)
-
-		if len(argv) == 3:
-			if argv[0].lower() in ['--reddit', '-r']:
-				gw.db.set_credentials('reddit', argv[1], argv[2])
-				gw.debug('added/updated reddit login credentials for user "%s"' % argv[1])
-			elif argv[0].lower() in ['--soundcloud', '-sc']:
-				gw.db.set_credentials('soundcloud', argv[1], argv[2])
-				gw.debug('added/updated soundcloud login credentials for user "%s"' % argv[1])
+		if handle_arguments(gw):
 			exit(0)
 	except Exception, e:
 		gw.debug('\n[!] Error: %s' % str(e.message))
 		from traceback import format_exc
 		print format_exc()
+
+		from sys import exit
 		exit(1)
 
+	gw.login()
 	gw.infinite_loop()
 	
