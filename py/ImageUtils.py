@@ -199,10 +199,17 @@ class ImageUtils(object):
 		try:
 			json = loads(r)
 			if 'download_url' in json:
-				download = '%s&client_id=%s' % (json['download_url'], client_id)
+				download = json['download_url']
+				if '?' in download:
+					download += '&'
+				else:
+					download += '?'
+				download += 'client_id=%s' % client_id
 				return ('audio', None, [download])
 		except Exception, e:
-			raise Exception('unable to parse json')
+			from traceback import format_exc
+			print format_exc()
+			raise Exception('unable to parse json: %s' % str(e))
 		return []
 
 	################
@@ -396,8 +403,11 @@ class ImageUtils(object):
 	def get_filename_from_url(url, media_type='image'):
 		fname = ImageUtils.strip_url(url)
 		fields = fname.split('/')
-		while not '.' in fields[-1]: fields.pop(-1)
-		filename = fields[-1]
+		if 'soundcloud.com' in url:
+			filename = '%s.mp3' % fields[4]
+		else:
+			while not '.' in fields[-1]: fields.pop(-1)
+			filename = fields[-1]
 		if media_type == 'audio':
 			if filename.endswith('.php'):
 				filename = filename[:filename.rfind('.')+1] + 'mp3'
@@ -546,26 +556,23 @@ if __name__ == '__main__':
 	# Direct links
 	#url = 'http://indiestatik.com/wp-content/uploads/2014/03/IMG_0362.jpg'
 	#url = 'https://d1wst0behutosd.cloudfront.net/videos/2296.mp4'
-	url = 'http://soundgasm.net/sounds/8922312168b99ba4c4c9c294e3ced77a49336c6c.m4a'
+	#url = 'http://soundgasm.net/sounds/8922312168b99ba4c4c9c294e3ced77a49336c6c.m4a'
 
-	urls = [url]
-	test_urls = [
-	'http://vidble.com/album/Mvu8XuF3',
-	'http://www.vidble.com/album/y1oyh3zd',
-	'http://www.vidble.com/album/XdFhKgO5',
-	'http://vidble.com/album/7kG4fX2X',
-	'http://vidble.com/album/BI0l4pkI']
+	url = 'http://soundcloud.com/bondgirlaudio/my-f-irst-gwa-post-thank-you'
+	test_urls = [url]
+
 	ImageUtils.httpy.debugging = True
 	for index,test_url in enumerate(test_urls):
-		(a, b, urls) = ImageUtils.get_urls(test_url)
+		(media_type, b, urls) = ImageUtils.get_urls(test_url)
 		if len(urls) == 0:
 			print index, 'no media urls found for %s' % test_url
 			from sys import exit
 			exit(1)
-		print index, a, b, urls
+		print index, media_type, b, urls
 		for i,u in enumerate(urls):
 			print index,i,u
-			ImageUtils.httpy.download(u, 'test-%d-%d.%s' % (index, i, u[u.rfind('.')+1:]))
+			fname = ImageUtils.get_filename_from_url(u, media_type=media_type)
+			ImageUtils.httpy.download(u, 'test-%d-%d-%s' % (index, i, fname))
 	#ImageUtils.create_thumbnail('test.jpg', 'test_thumb.jpg')
 	#ImageUtils.create_thumbnail('../test.mp4', '../test_thumb.jpg')
 	# Testing imgur highest-res
