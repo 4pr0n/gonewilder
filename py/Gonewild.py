@@ -432,6 +432,32 @@ Permalink: %s
 			self.db.set_config('add_top_users', 'true')
 			self.debug('Will automatically add top users from http://reddit.com/r/gonewild/top?t=week')
 
+	def print_posts(self, user):
+		userid = self.db.get_user_id(user)
+		posts = self.db.select('id,title,url,selftext,subreddit,created,permalink,ups,downs', 'posts', 'userid = ? order by created asc', [userid])
+		for (postid, title, url, selftext, subreddit, created, permalink, ups, downs) in posts:
+			output = ['']
+			output.append(    'Permalink: %s' % permalink)
+			output.append(    '    Title: %s' % title.replace('\n', ''))
+			if url != None:
+				output.append(' Url/Text: %s' % url)
+			elif selftext != None:
+				output.append(' Url/Text: %s' % selftext)
+			output.append(    '     Date: %s' % strftime('%y-%m-%dT%H:%M:%SZ', gmtime(created)))
+			output.append(    '    Votes: +%d/-%d' % (ups, downs))
+			print '\n'.join(output)
+
+	def print_comments(self, user):
+		userid = self.db.get_user_id(user)
+		comments = self.db.select('id,subreddit,text,created,permalink,ups,downs', 'comments', 'userid = ? order by created asc', [userid])
+		for (commentid, subreddit, body, created, permalink, ups, downs) in comments:
+			output = ['']
+			output.append(    'Permalink: %s' % permalink)
+			output.append(    '     Date: %s' % strftime('%y-%m-%dT%H:%M:%SZ', gmtime(created)))
+			output.append(    '    Votes: +%d/-%d' % (ups, downs))
+			output.append(    '  Comment: %s' % body.replace('\n\n', '\n').replace('\n', '\n           '))
+			print '\n'.join(output)
+
 	def exit_if_already_started(self):
 		from commands import getstatusoutput
 		(status, output) = getstatusoutput('ps aux')
@@ -520,6 +546,13 @@ Arguments can continue multiple values (separated by commas)
 		help='Attempt to create missing thumbnails',
 		action='store_true')
 
+	parser.add_argument('--comments',
+		help='Dump all comments for a user',
+		metavar='USER')
+	parser.add_argument('--posts',
+		help='Print all posts made by a user',
+		metavar='USER')
+
 	parser.add_argument('--config',
 		help='Show or set configuration values',
 		nargs='*',
@@ -606,6 +639,15 @@ Arguments can continue multiple values (separated by commas)
 				savethumbas = path.join(ImageUtils.get_root(), 'images', 'nothumb.png')
 				gw.debug('Backfill-Thumbnails: Failed to create thumb for %s: %s, using nothumb.png' % (imagepath, str(e)))
 		gw.db.commit()
+
+	elif args.comments:
+		users = args.comments.replace('u/', '').replace('/', '').split(',')
+		for user in users:
+			gw.print_comments(user)
+	elif args.posts:
+		users = args.posts.replace('u/', '').replace('/', '').split(',')
+		for user in users:
+			gw.print_posts(user)
 
 	elif args.config == [] or args.config:
 		if len(args.config) == 0:
