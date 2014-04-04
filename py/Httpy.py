@@ -33,7 +33,7 @@ class Httpy:
 		if user_agent != None:
 			self.user_agent = user_agent
 		else:
-			self.user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:19.0) Gecko/20100101 Firefox/19.0'
+			self.user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:28.0) Gecko/20100101 Firefox/28.0'
 	
 	def raise_timeout(self, signum, frame):
 		raise Exception("Timeout")
