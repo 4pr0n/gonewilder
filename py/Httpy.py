@@ -19,7 +19,7 @@ class Httpy:
 	"""
 		Class used for communicating with web servers.
 	"""
-	
+
 	def __init__(self, user_agent=None, debugging=False):
 		"""
 			Sets this class's user agent.
