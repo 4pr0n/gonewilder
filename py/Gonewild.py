@@ -144,6 +144,7 @@ class Gonewild(object):
 			self.debug('poll_friends: loaded %d items from %s' % (len(children), friend_url))
 			for child in children:
 				user = child.author
+				if user == '[deleted]': continue
 
 				# Add friend as 'user' in DB if needed
 				if not self.db.user_already_added(user):
@@ -359,6 +360,10 @@ Permalink: %s
 			if not self.db.user_already_added(post.author):
 				self.debug('add_top_users: Found new user, adding /u/%s' % post.author)
 				self.db.add_user(post.author, new=True)
+				friend_zone = self.db.get_config('friend_zone')
+				if friend_zone == None or friend_zone == 'none':
+					self.add_friend(user)
+
 
 	def add_friend(self, user):
 		try:
