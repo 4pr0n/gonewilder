@@ -254,7 +254,7 @@ class Httpy:
 		""" Downloads file from URL to save_as path. """
 		retry_count = 0
 		headers = {'User-agent' : self.user_agent}
-		outfile = open(save_as, 'w')
+		outfile = open(save_as, 'wb')
 		while True:
 			try:
 				retry_count += 1
