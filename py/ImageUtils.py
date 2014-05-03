@@ -339,7 +339,23 @@ class ImageUtils(object):
 			for imageid in imageids:
 				result.append(ImageUtils.get_imgur_highest_res('http://imgur.com/%s' % imageid))
 			return ('image', None, result)
-
+		elif '.imgur.com/' in url:
+			# Old album type
+			username = ImageUtils.httpy.between(url, '//', '.')[0]
+			if username in ['www', 'm', 'i']:
+				# Image
+				return ('image', None, [ImageUtils.get_imgur_highest_res(url)])
+			album = url[url.find('imgur.com/')+len('imgur.com/'):].strip()
+			if len(album) == 0:
+				# Imgur account
+				raise Exception('cannot scrape %s : scraping imgur accounts is not supported' % url)
+			else:
+				# Imgur account album
+				albumid = "%s_%s" % (username, album)
+				if '/' in albumid: albumid = albumid[:albumid.find('/')]
+				if '#' in albumid: albumid = albumid[:albumid.find('#')]
+				if '?' in albumid: albumid = albumid[:albumid.find('?')]
+				return ('album', albumid, ImageUtils.get_imgur_account_album(url))
 		else:
 			# Image
 			return ('image', None, [ImageUtils.get_imgur_highest_res(url)])
@@ -390,6 +406,12 @@ class ImageUtils(object):
 			ImageUtils.debug('imgur_highest_res: %s -> %s' % (url, image))
 			return image
 		return url
+
+	@staticmethod
+	def get_imgur_account_album(url):
+		r = ImageUtils.httpy.get(url)
+		albumid = ImageUtils.httpy.between(r, "setAlbumView('", "'")[0]
+		return ImageUtils.get_imgur_album('http://imgur.com/a/%s' % albumid)
 
 
 	'''
@@ -558,7 +580,8 @@ if __name__ == '__main__':
 	#url = 'https://d1wst0behutosd.cloudfront.net/videos/2296.mp4'
 	#url = 'http://soundgasm.net/sounds/8922312168b99ba4c4c9c294e3ced77a49336c6c.m4a'
 
-	url = 'http://soundcloud.com/bondgirlaudio/my-f-irst-gwa-post-thank-you'
+	#url = 'http://soundcloud.com/bondgirlaudio/my-f-irst-gwa-post-thank-you'
+	url = 'http://dayah.imgur.com/kapow'
 	test_urls = [url]
 
 	ImageUtils.httpy.debugging = True
