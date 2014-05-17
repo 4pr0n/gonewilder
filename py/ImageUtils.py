@@ -84,6 +84,9 @@ class ImageUtils(object):
 		elif 'vidd.me/' in url:
 			# viddme
 			return ImageUtils.get_urls_viddme(url)
+		elif 'gfycat.com/' in url:
+			# gfycat
+			return ImageUtils.get_urls_gfycat(url)
 		else:
 			result = []
 			for extension in ['jpg', 'png', 'gif']:
@@ -315,6 +318,19 @@ class ImageUtils(object):
 		for link in ImageUtils.httpy.between(r, 'property="og:video:url" content="', '">'):
 			if link.endswith('.mp4'):
 				urls.append(link)
+		return ('video', None, urls)
+
+	################
+	# GFYCAT.COM
+	@staticmethod
+	def get_urls_gfycat(url):
+		ImageUtils.debug('gfycat.com: getting %s' % url)
+		r = ImageUtils.httpy.get(url)
+		urls = []
+		for link in ImageUtils.httpy.between(r, '<meta name="twitter:player:stream" content="', '"'):
+			if link.endswith('.webm'):
+				urls.append(link)
+				break
 		return ('video', None, urls)
 
 	################
@@ -581,7 +597,8 @@ if __name__ == '__main__':
 	#url = 'http://soundgasm.net/sounds/8922312168b99ba4c4c9c294e3ced77a49336c6c.m4a'
 
 	#url = 'http://soundcloud.com/bondgirlaudio/my-f-irst-gwa-post-thank-you'
-	url = 'http://dayah.imgur.com/kapow'
+	#url = 'http://dayah.imgur.com/kapow'
+	url = 'http://gfycat.com/AmusingCalculatingGrayfox'
 	test_urls = [url]
 
 	ImageUtils.httpy.debugging = True
