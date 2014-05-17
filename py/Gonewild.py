@@ -513,6 +513,9 @@ Arguments can continue multiple values (separated by commas)
 	parser.add_argument('--add-top', '-tz',
 		help='Toggle adding top users from /r/gonewild',
 		action='store_true')
+	parser.add_argument('--remove',
+		help='Remove user from database',
+		metavar='USER')
 
 	parser.add_argument('--exclude',
 		help='Add subreddit to exclude (ignore)',
@@ -589,6 +592,14 @@ Arguments can continue multiple values (separated by commas)
 		for user in users:
 			if not gw.db.user_already_added(user):
 				gw.db.add_user(user, new=True)
+				gw.debug('Add new user: /u/%s' % user)
+			else:
+				gw.debug('Warning: User already added: /u/%s' % user)
+	elif args.remove:
+		users = args.remove.replace('u/', '').replace('/', '').split(',')
+		for user in users:
+			if gw.db.user_already_added(user):
+				gw.db.remove_user(user, new=True)
 				gw.debug('Add new user: /u/%s' % user)
 			else:
 				gw.debug('Warning: User already added: /u/%s' % user)

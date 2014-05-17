@@ -2,7 +2,7 @@
 import time
 from os import path, listdir
 from sys import stderr
-from shutil import copy2
+from shutil import copy2, rmtree
 from Reddit import Comment, Post
 from ImageUtils import ImageUtils
 
@@ -257,6 +257,18 @@ class DB:
 			self.debug('add_user: user "%s" already exists in %susers: %s' % (user, 'new' if new else '', str(e)))
 			raise e
 		self.commit()
+	
+	def remove_user(self, user):
+		userid = self.get_user_id(user)
+		user = self.select_one('username', 'users', where='id = ?', values=[userid])
+		self.delete('posts',    'userid = ?', [userid])
+		self.delete('comments', 'userid = ?', [userid])
+		self.delete('albums',   'userid = ?', [userid])
+		self.delete('users',    'username like ?', [user])
+		self.delete('newusers', 'username like ?', [user])
+		dirpath = path.join(ImageUtils.get_root(), 'content', user)
+		if path.exists(dirpath):
+			rmtree(dirpath)
 
 	''' Finds user ID for username; creates new user if not found '''
 	def get_user_id(self, user):
