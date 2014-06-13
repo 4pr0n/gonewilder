@@ -315,9 +315,9 @@ class ImageUtils(object):
 		ImageUtils.debug('vidd.me: getting %s' % url)
 		r = ImageUtils.httpy.get(url)
 		urls = []
-		for link in ImageUtils.httpy.between(r, 'property="og:video:url" content="', '">'):
-			if link.endswith('.mp4'):
-				urls.append(link)
+		for link in ImageUtils.httpy.between(r, 'meta name="twitter:player:stream" content="', '">'):
+			link = link.replace('&amp;', '&')
+			urls.append(link)
 		return ('video', None, urls)
 
 	################
@@ -589,7 +589,6 @@ if __name__ == '__main__':
 	#url = 'https://mediacru.sh/5dc4cee7fb94' # album
 	#url = 'https://mediacru.sh/d7CsmyozGgB7'
 	#url = 'http://imgur.com/WZweelk,oB0mtcb,spBaC6r'
-	#url = 'https://vidd.me/xpW'
 
 	# Direct links
 	#url = 'http://indiestatik.com/wp-content/uploads/2014/03/IMG_0362.jpg'
@@ -598,7 +597,8 @@ if __name__ == '__main__':
 
 	#url = 'http://soundcloud.com/bondgirlaudio/my-f-irst-gwa-post-thank-you'
 	#url = 'http://dayah.imgur.com/kapow'
-	url = 'http://gfycat.com/AmusingCalculatingGrayfox'
+	#url = 'http://gfycat.com/AmusingCalculatingGrayfox'
+	url = 'https://vidd.me/xpW'
 	test_urls = [url]
 
 	ImageUtils.httpy.debugging = True
