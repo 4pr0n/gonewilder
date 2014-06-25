@@ -320,7 +320,15 @@ Permalink: %s
 				last_index = 0
 				# Get top users if it's enabled
 				if self.db.get_config('add_top_users') != 'false':
-					self.add_top_users() # Add users from /top
+					for new_top_user in self.add_top_users():
+						# Add top users to users list
+						if not new_top_user.lower() in [x.lower() for x in users]:
+							users.append(new_top_user)
+
+			# Check if there are actually users to retrieve
+			if len(users) == 0:
+				self.debug('no users to retrieve. exiting')
+				break
 
 			user = users[last_index]
 			# Add user to friends list if applicable
@@ -348,13 +356,14 @@ Permalink: %s
 					print format_exc()			
 
 	def add_top_users(self):
+		users = []
 		subs = ['gonewild']
 		self.debug('add_top_users: loading top posts for the week from %s' % ','.join(subs))
 		try:
 			posts = self.reddit.get('http://www.reddit.com/r/%s/top.json?t=week' % '+'.join(subs))
 		except Exception, e:
 			self.debug('add_top_users: Exception: %s' % str(e))
-			return
+			return users
 		for post in posts:
 			if post.author == '[deleted]': continue
 			if not self.db.user_already_added(post.author):
@@ -362,7 +371,9 @@ Permalink: %s
 				self.db.add_user(post.author, new=True)
 				friend_zone = self.db.get_config('friend_zone')
 				if friend_zone == None or friend_zone == 'none':
-					self.add_friend(user)
+					self.add_friend(post.author)
+				users.append(post.author)
+		return users
 
 
 	def add_friend(self, user):
