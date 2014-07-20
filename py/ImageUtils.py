@@ -81,7 +81,7 @@ class ImageUtils(object):
 		elif 'mediacru.sh/' in url:
 			# mediacrush
 			return ImageUtils.get_urls_mediacrush(url)
-		elif 'vidd.me/' in url:
+		elif 'vidd.me/' in url or 'vid.me/' in url:
 			# viddme
 			return ImageUtils.get_urls_viddme(url)
 		elif 'gfycat.com/' in url:
@@ -598,7 +598,8 @@ if __name__ == '__main__':
 	#url = 'http://soundcloud.com/bondgirlaudio/my-f-irst-gwa-post-thank-you'
 	#url = 'http://dayah.imgur.com/kapow'
 	#url = 'http://gfycat.com/AmusingCalculatingGrayfox'
-	url = 'https://vidd.me/xpW'
+	#url = 'https://vidd.me/xpW'
+	url = 'https://vid.me/xpW'
 	test_urls = [url]
 
 	ImageUtils.httpy.debugging = True
