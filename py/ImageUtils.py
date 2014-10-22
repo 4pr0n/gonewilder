@@ -399,6 +399,8 @@ class ImageUtils(object):
 	def get_imgur_highest_res(url):
 		if not '/' in url:
 			raise Exception('invalid url: %s' % url)
+		if url.endswith('.gifv'):
+			url = url[:url.rfind('.gifv')]
 		fname = url.split('/')[-1]
 		if '.' in fname and fname[fname.rfind('.')-1] == 'h':
 			# Might not be highest res, revert to image-page
@@ -415,10 +417,16 @@ class ImageUtils(object):
 		elif not '.' in fname:
 			# Need to get full-size and extension
 			r = ImageUtils.httpy.get(url)
-			if not '<link rel="image_src"' in r:
+			if '<meta name="twitter:player:stream"' in r:
+				# GIFV file
+				chunk = ImageUtils.httpy.between(r, '<meta name="twitter:player:stream"', '>')[0]
+				image = ImageUtils.httpy.between(chunk, 'content="', '"')[0]
+			elif '<link rel="image_src"' in r:
+				# Image file
+				chunk = ImageUtils.httpy.between(r, '<link rel="image_src"', '>')[0]
+				image = ImageUtils.httpy.between(chunk, 'href="', '"')[0]
+			else:
 				raise Exception('image not found')
-			chunk = ImageUtils.httpy.between(r, '<link rel="image_src"', '>')[0]
-			image = ImageUtils.httpy.between(chunk, 'href="', '"')[0]
 			if image.startswith('//'): image = 'http:%s' % image
 			ImageUtils.debug('imgur_highest_res: %s -> %s' % (url, image))
 			return image
@@ -603,7 +611,9 @@ if __name__ == '__main__':
 	#url = 'https://vidd.me/xpW'
 	#url = 'https://vid.me/xpW'
 	url = 'http://imgur.com/PNzNzdf' # Ends with ?1
-	#url = 'http://imgur.com/OZiYY9D' # Doe snot end with ?1
+	#url = 'http://imgur.com/OZiYY9D' # Does not end with ?1
+	#url = 'http://i.imgur.com/B5TOKc6.gifv'
+	#url = 'http://imgur.com/B5TOKc6'
 	test_urls = [url]
 
 	ImageUtils.httpy.debugging = True
