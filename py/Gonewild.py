@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from DB         import DB
-from os         import path, mkdir
+from os         import path, mkdir, devnull
 from sys        import stderr
 from Reddit     import Reddit, Child, Post, Comment
 from ImageUtils import ImageUtils
@@ -17,9 +17,15 @@ class Gonewild(object):
 	def __init__(self):
 		# Single file that all output is written to, to track usage
 		self.exit_if_already_started()
-		self.root_log = open(path.join(ImageUtils.get_root(), 'history.log'), 'a')
+		self.db = DB() # Database instance
+
+		log_level = self.db.get_config('log_level', default='user')
+		if log_level == 'none':
+			self.root_log = open(devnull, 'w')
+		else:
+			self.root_log = open(path.join(ImageUtils.get_root(), 'history.log'), 'a')
 		self.logger   = self.root_log # Logger used by helper classes
-		self.db       = DB() # Database instance
+
 		self.reddit   = Reddit()
 		self.excluded_subs = self.db.get_excluded_subreddits()
 		
@@ -59,14 +65,22 @@ class Gonewild(object):
 		user_dir = path.join(ImageUtils.get_root(), 'content', user)
 		ImageUtils.create_subdirectories(user_dir)
 		# Setup logger
-		self.logger = open(path.join(user_dir, 'history.log'), 'a')
+		log_level = self.db.get_config('log_level', default='user')
+		if   log_level == 'none':   self.logger = open(devnull, 'w')
+		elif log_level == 'user':   self.logger = open(path.join(user_dir, 'history.log'), 'a')
+		elif log_level == 'global': self.logger = self.root_log
 		self.db.logger     = self.logger
 		ImageUtils.logger  = self.logger
 		self.reddit.logger = self.logger
 
 	def restore_loggers(self):
-		self.logger.close()
-		self.logger = self.root_log
+		log_level = self.db.get_config('log_level', default='user')
+		if log_level == 'user':
+			self.logger.close()
+			self.logger = self.root_log
+			self.db.logger     = self.logger
+			ImageUtils.logger  = self.logger
+			self.reddit.logger = self.logger
 
 	def is_excluded_child(self, child):
 		if child.subreddit.lower() in [x.lower() for x in self.excluded_subs]:
@@ -578,6 +592,10 @@ Arguments can continue multiple values (separated by commas)
 		help='Print all posts made by a user',
 		metavar='USER')
 
+	parser.add_argument('--log',
+		help='Set logging level (global, user, none)',
+		metavar='LEVEL')
+
 	parser.add_argument('--config',
 		help='Show or set configuration values',
 		nargs='*',
@@ -681,6 +699,15 @@ Arguments can continue multiple values (separated by commas)
 		users = args.posts.replace('u/', '').replace('/', '').split(',')
 		for user in users:
 			gw.print_posts(user)
+	
+	elif args.log:
+		level = args.log
+		if not level.lower() in ['global', 'user', 'none', 'off']:
+			gw.debug('Failed to set log level: given level "%s" is not valid' % level.lower())
+			gw.debug('Use "global", "user" or "none"')
+		else:
+			gw.db.set_config('log_level', level.lower())
+			gw.debug('Set Log Level to: %s' % level.lower())
 
 	elif args.config == [] or args.config:
 		if len(args.config) == 0:
