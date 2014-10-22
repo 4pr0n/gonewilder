@@ -20,6 +20,7 @@ class Httpy:
 		Class used for communicating with web servers.
 	"""
 
+	DEFAULT_USERAGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:32.0) Gecko/20100101 Firefox/32.0'
 	def __init__(self, user_agent=None, debugging=False):
 		"""
 			Sets this class's user agent.
@@ -33,7 +34,7 @@ class Httpy:
 		if user_agent != None:
 			self.user_agent = user_agent
 		else:
-			self.user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:28.0) Gecko/20100101 Firefox/28.0'
+			self.user_agent = Httpy.DEFAULT_USERAGENT
 	
 	def raise_timeout(self, signum, frame):
 		raise Exception("Timeout")

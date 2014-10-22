@@ -598,8 +598,9 @@ if __name__ == '__main__':
 	#url = 'http://soundcloud.com/bondgirlaudio/my-f-irst-gwa-post-thank-you'
 	#url = 'http://dayah.imgur.com/kapow'
 	#url = 'http://gfycat.com/AmusingCalculatingGrayfox'
+	url = 'http://gfycat.com/HandmadePertinentArmedcrab'
 	#url = 'https://vidd.me/xpW'
-	url = 'https://vid.me/xpW'
+	#url = 'https://vid.me/xpW'
 	test_urls = [url]
 
 	ImageUtils.httpy.debugging = True
