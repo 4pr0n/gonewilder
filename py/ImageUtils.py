@@ -415,9 +415,10 @@ class ImageUtils(object):
 		elif not '.' in fname:
 			# Need to get full-size and extension
 			r = ImageUtils.httpy.get(url)
-			if not '<link rel="image_src" href="' in r:
+			if not '<link rel="image_src"' in r:
 				raise Exception('image not found')
-			image = ImageUtils.httpy.between(r, '<link rel="image_src" href="', '"')[0]
+			chunk = ImageUtils.httpy.between(r, '<link rel="image_src"', '>')[0]
+			image = ImageUtils.httpy.between(chunk, 'href="', '"')[0]
 			if image.startswith('//'): image = 'http:%s' % image
 			ImageUtils.debug('imgur_highest_res: %s -> %s' % (url, image))
 			return image
@@ -598,9 +599,11 @@ if __name__ == '__main__':
 	#url = 'http://soundcloud.com/bondgirlaudio/my-f-irst-gwa-post-thank-you'
 	#url = 'http://dayah.imgur.com/kapow'
 	#url = 'http://gfycat.com/AmusingCalculatingGrayfox'
-	url = 'http://gfycat.com/HandmadePertinentArmedcrab'
+	#url = 'http://gfycat.com/HandmadePertinentArmedcrab'
 	#url = 'https://vidd.me/xpW'
 	#url = 'https://vid.me/xpW'
+	url = 'http://imgur.com/PNzNzdf' # Ends with ?1
+	#url = 'http://imgur.com/OZiYY9D' # Doe snot end with ?1
 	test_urls = [url]
 
 	ImageUtils.httpy.debugging = True
