@@ -407,7 +407,11 @@ Permalink: %s
 		db_users = self.db.get_users_list()
 		db_friends = self.db.get_friends_list()
 		self.login()
-		reddit_friends = self.reddit.get_friends_list()
+		try:
+			reddit_friends = self.reddit.get_friends_list()
+		except Exception, e:
+			self.debug(str(e))
+			reddit_friends = []
 		self.debug('%d total users, %d friends in DB, %d friends on reddit' % (len(db_users), len(db_friends), len(reddit_friends)))
 
 		need2add = []
