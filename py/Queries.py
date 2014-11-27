@@ -67,10 +67,10 @@ class Queries(object):
 			conditions     = []
 			search_values  = []
 			if 'user' in filters and len(filters['user']) > 0:
-				conditions += ['username like ?'] * len(filters['user'])
+				conditions += ['UPPER(username) like UPPER(?)'] * len(filters['user'])
 				search_values += filters['user']
 			elif len(texts) > 0:
-				conditions += ['username like ?'] * len(texts)
+				conditions += ['UPPER(username) like UPPER(?)'] * len(texts)
 				search_values += texts
 			query += ' OR '.join(conditions)
 			query += '''
@@ -118,10 +118,10 @@ class Queries(object):
 			search_values.extend(texts)
 
 		if 'user' in filters and len(filters['user']) > 0:
-			conditions_and.extend(['username like ?'] * len(filters['user']))
+			conditions_and.extend(['UPPER(username) like UPPER(?)'] * len(filters['user']))
 			search_values.extend(filters['user'])
 		else:
-			conditions_or.extend(['username like ?'] * len(texts))
+			conditions_or.extend(['UPPER(username) like UPPER(?)'] * len(texts))
 			search_values.extend(texts)
 		if 'reddit' in filters and len(filters['reddit']) > 0:
 			conditions_and.extend(['subreddit like ?'] * len(filters['reddit']))
@@ -256,7 +256,7 @@ class Queries(object):
 			from posts
 			where 
 				posts.userid in
-					(select id from users where username = ?)
+					(select id from users where UPPER(username) = UPPER(?))
 			order by %s %s
 			limit  %d
 			offset %d
@@ -304,7 +304,7 @@ class Queries(object):
 			}
 
 		if start == 0:
-			userid = db.select_one('id', 'users', 'username = ?', [user])
+			userid = db.select_one('id', 'users', 'UPPER(username) = UPPER(?)', [user])
 			response['post_count']  = db.count('posts',  'userid = ?', [userid])
 			response['image_count'] = db.count('images', 'userid = ? and (type = \'image\' or type = \'album\')', [userid])
 			response['video_count'] = db.count('images', 'userid = ? and type =  \'video\'', [userid])
@@ -327,7 +327,7 @@ class Queries(object):
 			from comments
 			where 
 				comments.userid in
-					(select id from users where username = ?)
+					(select id from users where UPPER(username) = UPPER(?))
 			order by %s %s
 			limit  %d
 			offset %d
@@ -386,7 +386,7 @@ class Queries(object):
 			orderby = 'desc'
 
 		if user != None:
-			where = 'where username = ?'
+			where = 'where UPPER(username) = UPPER(?)'
 			values = [user]
 		else:
 			where = ''
@@ -464,7 +464,7 @@ class Queries(object):
 			if not path.exists(path.join(source, album)):
 				return {'error' : 'album dir "%s" not found' % album}
 			source = path.join(source, album)
-		if db.count('users', 'username like ?', [user]) == 0:
+		if db.count('users', 'UPPER(username) like UPPER(?)', [user]) == 0:
 			return {'error' : 'user "%s" not in db' % user}
 		if not path.exists('zips'): mkdir('zips')
 
@@ -477,7 +477,7 @@ class Queries(object):
 		# Check for existing zip
 		if path.exists(zip_path):
 			zip_time = path.getmtime(zip_path)
-			source_time = db.select_one('max(created)', 'posts', 'userid in (select id from users where username = ?)', [user])
+			source_time = db.select_one('max(created)', 'posts', 'userid in (select id from users where UPPER(username) = UPPER(?))', [user])
 			if album == None:
 				q = 'user = ? and album is null'
 				v = [user]
@@ -550,7 +550,7 @@ class Queries(object):
 		# Get proper user case
 		db = DB()
 		try:
-			user = db.select_one('username', 'users', 'username like ?', [user])
+			user = db.select_one('username', 'users', 'UPPER(username) like UPPER(?)', [user])
 		except:
 			user = None
 		if user == None:

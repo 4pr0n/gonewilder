@@ -122,7 +122,7 @@ def search_user(keys):
 	db = DB()
 	cursor = db.conn.cursor()
 	try:
-		user = db.select_one('username', 'users', 'username like ?', [keys['user']])
+		user = db.select_one('username', 'users', 'UPPER(username) like UPPER(?)', [keys['user']])
 		if user != None:
 			return {'users' : [user]}
 	except:
@@ -130,7 +130,7 @@ def search_user(keys):
 	q = '''
 		select username
 		from users
-		where username like ?
+		where UPPER(username) like UPPER(?)
 		limit %d
 		offset %d
 	''' % (keys.get('count', 10), keys.get('start', 0))

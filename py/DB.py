@@ -264,8 +264,8 @@ class DB:
 		self.delete('posts',    'userid = ?', [userid])
 		self.delete('comments', 'userid = ?', [userid])
 		self.delete('albums',   'userid = ?', [userid])
-		self.delete('users',    'username like ?', [user])
-		self.delete('newusers', 'username like ?', [user])
+		self.delete('users',    'UPPER(username) like UPPER(?)', [user])
+		self.delete('newusers', 'UPPER(username) like UPPER(?)', [user])
 		dirpath = path.join(ImageUtils.get_root(), 'content', user)
 		if path.exists(dirpath):
 			rmtree(dirpath)
@@ -276,7 +276,7 @@ class DB:
 		results = cur.execute('''
 			select id
 				from users
-				where username like "%s"
+				where UPPER(username) like UPPER("%s")
 		''' % user)
 		users = results.fetchall()
 		if len(users) == 0:
@@ -284,7 +284,7 @@ class DB:
 			results = cur.execute('''
 				select id
 					from users
-					where username like "%s"
+					where UPPER(username) like UPPER("%s")
 			''' % user)
 			users = results.fetchall()
 		cur.close()
@@ -296,14 +296,14 @@ class DB:
 		results = cur.execute('''
 			select *
 				from users
-				where username like "%s"
+				where UPPER(username) like UPPER("%s")
 		''' % user)
 		if len(results.fetchall()) > 0:
 			return True
 		results = cur.execute('''
 			select *
 				from newusers
-				where username like "%s"
+				where UPPER(username) like UPPER("%s")
 		''' % user)
 		return len(results.fetchall()) > 0
 
@@ -312,7 +312,7 @@ class DB:
 		results = cur.execute('''
 			select sinceid
 				from users
-				where username like "%s"
+				where UPPER(username) like UPPER("%s")
 		''' % user)
 		return results.fetchall()[0][0]
 
@@ -321,7 +321,7 @@ class DB:
 		query = '''
 			update users
 				set sinceid = "%s"
-				where username like "%s"
+				where UPPER(username) like UPPER("%s")
 		''' % (since_id, user)
 		cur.execute(query)
 		self.commit()
@@ -446,7 +446,7 @@ class DB:
 		if new:
 			# Delete list of new users, add to new users list
 			for user in [x[0] for x in users]:
-				delq = 'delete from newusers where username like "%s"' % user
+				delq = 'delete from newusers where UPPER(username) like UPPER("%s")' % user
 				cur.execute(delq)
 				try: self.add_user(user, new=False)
 				except: pass
@@ -634,7 +634,7 @@ class DB:
 		query = '''
 			update users
 				set updated = %d
-				where username like ?
+				where UPPER(USERNAME) like UPPER(?)
 		''' % int(time.time())
 		cur.execute(query, [user])
 		self.commit()
@@ -664,13 +664,13 @@ class DB:
 		query = '''
 			update users
 				set deleted = 1
-				where username like "%s"
+				where UPPER(username) like UPPER("%s")
 		''' % (user)
 		cur.execute(query)
 		self.commit()
 
 	def already_friend(self, user):
-		return self.count('friends', 'username = ?', [user]) > 0
+		return self.count('friends', 'UPPER(username) = UPPER(?)', [user]) > 0
 	
 	def add_friend(self, user):
 		cur = self.conn.cursor()
@@ -678,7 +678,7 @@ class DB:
 		self.commit()
 
 	def remove_friend(self, user):
-		self.delete('friends', 'username like ?', [user])
+		self.delete('friends', 'UPPER(username) like UPPER(?)', [user])
 		self.commit()
 
 	def get_friends_list(self):
