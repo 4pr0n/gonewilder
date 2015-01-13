@@ -325,7 +325,10 @@ class ImageUtils(object):
 	@staticmethod
 	def get_urls_gfycat(url):
 		ImageUtils.debug('gfycat.com: getting %s' % url)
-		r = ImageUtils.httpy.get(url)
+		headers = {
+			'Referer' : url
+		}
+		r = ImageUtils.httpy.get(url, headers=headers)
 		urls = []
 		for link in ImageUtils.httpy.between(r, '<meta name="twitter:player:stream" content="', '"'):
 			if link.endswith('.webm'):

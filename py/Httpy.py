@@ -20,7 +20,7 @@ class Httpy:
 		Class used for communicating with web servers.
 	"""
 
-	DEFAULT_USERAGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:32.0) Gecko/20100101 Firefox/32.0'
+	DEFAULT_USERAGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:34.0) Gecko/20100101 Firefox/34.0'
 	def __init__(self, user_agent=None, debugging=False):
 		"""
 			Sets this class's user agent.
@@ -251,10 +251,11 @@ class Httpy:
 			if self.debugging: stderr.write('Httpy.py: Exception: %s: %s\n' % (url, str(e)))
 			return ''
 	
-	def download(self, url, save_as, timeout=DOWNLOAD_TIMEOUT, raise_exception=True, retries=3):
+	def download(self, url, save_as, headers={}, timeout=DOWNLOAD_TIMEOUT, raise_exception=True, retries=3):
 		""" Downloads file from URL to save_as path. """
 		retry_count = 0
-		headers = {'User-agent' : self.user_agent}
+		if not 'User-agent' in headers:
+			headers['User-agent'] = self.user_agent
 		outfile = open(save_as, 'wb')
 		while True:
 			try:

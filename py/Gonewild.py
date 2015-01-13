@@ -263,7 +263,10 @@ Permalink: %s
 			# Download URL
 			try:
 				self.debug('%s: process_url: downloading #%d %s' % (child.author, media_index + 1, media))
-				ImageUtils.httpy.download(media, saveas)
+				headers = {
+					'Referer' : url
+				}
+				ImageUtils.httpy.download(media, saveas, headers=headers)
 				if path.getsize(saveas) == 503:
 					raise Exception('503b = removed')
 			except Exception, e:
