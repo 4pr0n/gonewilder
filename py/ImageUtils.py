@@ -386,15 +386,17 @@ class ImageUtils(object):
 		url = url.replace('http://', '').replace('https://', '')
 		fields = url.split('/')
 		while fields[-2] != 'a': fields.pop(-1)
-		url = 'http://%s' % '/'.join(fields)
-		# Get album
+		url = 'http://api.imgur.com/2/album/%s/images.json' % fields[-1]
+		r = ImageUtils.httpy.get(url)
+		ImageUtils.debug('get_imgur_album: fetched %s' % url)
+		from json import loads
+		json_resp = loads(r)
+		album = json_resp['album']
+
 		result = []
-		#ImageUtils.debug('imgur_album: loading %s' % url)
-		r = ImageUtils.httpy.get('%s/noscript' % url)
-		for image in ImageUtils.httpy.between(r, '<img src="//i.', '"'):
-			image = 'http://i.%s' % image
-			image = ImageUtils.get_imgur_highest_res(image)
-			result.append(image)
+		for image in album['images']:
+			result.append(image['links']['original'])
+			
 		ImageUtils.debug('get_imgur_album: found %d images in album' % len(result))
 		return result
 	
